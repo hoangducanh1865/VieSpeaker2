@@ -1,0 +1,17 @@
+{
+  "video": "sample_0.mp4",
+  "weights": "pipeline/face_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/models/VGGNet/WIDER_FACE/SFD_trained/SFD.caffemodel",
+  "cfg": "pipeline/face_pipeline/audio_visual_model/LoCoNet_ASD/configs/multi.yaml",
+  "resume_path": "pipeline/face_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model",
+  "mode": "both",
+  "device": "cpu",
+  "fps": 30.0,
+  "total_frames": 11282,
+  "tracks_file": "sample_0_output/tracks.json",
+  "scores_file": "sample_0_output/scores.json",
+  "render_path": "sample_0_output/overlay.mp4",
+  "speaker_threshold": 0.5,
+  "detections": 1,
+  "tracks": 1,
+  "score_events": 1
+}

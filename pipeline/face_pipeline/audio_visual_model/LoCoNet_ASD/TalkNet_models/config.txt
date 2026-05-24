@@ -1,0 +1,84 @@
+{
+  OUTPUT_DIR: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/TalkNet_models
+  NUM_GPUS: 4
+  LOG_NAME: config.txt
+  cfg: configs/multi.yaml
+  SEED: 20210617
+  NUM_WORKERS: 6
+  evalDataType: val
+  downloadAVA: True
+  evaluation: False
+  RESUME: False
+  RESUME_PATH: 
+  RESUME_EPOCH: 0
+  DATA: {
+      dataPathAVA: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/AVA_dataset }
+  DATALOADER: {
+      nDataLoaderThread: 4 }
+  SOLVER: {
+      OPTIMIZER: adam
+      BASE_LR: 5e-05
+      SCHEDULER: {
+          NAME: multistep
+          GAMMA: 0.95 } }
+  MODEL: {
+      NUM_SPEAKERS: 3
+      CLIP_LENGTH: 200
+      AV: speaker_temporal
+      AV_layers: 3
+      ADJUST_ATTENTION: 0 }
+  TRAIN: {
+      BATCH_SIZE: 1
+      MAX_EPOCH: 25
+      AUDIO_AUG: 1
+      TEST_INTERVAL: 1
+      TRAINER_GPU: 4 }
+  VAL: {
+      BATCH_SIZE: 1 }
+  TEST: {
+      BATCH_SIZE: 1
+      DATASET: seen
+      MODEL: unseen }
+  WORKSPACE: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/TalkNet_models }
+{
+  OUTPUT_DIR: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/TalkNet_models
+  NUM_GPUS: 4
+  LOG_NAME: config.txt
+  cfg: configs/multi.yaml
+  SEED: 20210617
+  NUM_WORKERS: 6
+  evalDataType: val
+  downloadAVA: True
+  evaluation: False
+  RESUME: False
+  RESUME_PATH: 
+  RESUME_EPOCH: 0
+  DATA: {
+      dataPathAVA: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/AVA_dataset }
+  DATALOADER: {
+      nDataLoaderThread: 4 }
+  SOLVER: {
+      OPTIMIZER: adam
+      BASE_LR: 5e-05
+      SCHEDULER: {
+          NAME: multistep
+          GAMMA: 0.95 } }
+  MODEL: {
+      NUM_SPEAKERS: 3
+      CLIP_LENGTH: 200
+      AV: speaker_temporal
+      AV_layers: 3
+      ADJUST_ATTENTION: 0 }
+  TRAIN: {
+      BATCH_SIZE: 1
+      MAX_EPOCH: 25
+      AUDIO_AUG: 1
+      TEST_INTERVAL: 1
+      TRAINER_GPU: 4 }
+  VAL: {
+      BATCH_SIZE: 1 }
+  TEST: {
+      BATCH_SIZE: 1
+      DATASET: seen
+      MODEL: unseen }
+  WORKSPACE: /home4/datpt/anhhd/sv/sv_dataset/face/LoCoNet_ASD/TalkNet_models }

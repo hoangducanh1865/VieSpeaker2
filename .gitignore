@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+.DS_Store
+debug
+stuff
+*.mp4 
+*.wav 
+reference/
+data/diarization_test_set/audio/*.wav 
+data/diarization_test_set/video/*.mp4
+pipeline/face_pipeline/results_supplement/tracks/*
