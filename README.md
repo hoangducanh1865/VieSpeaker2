@@ -4,6 +4,8 @@ Speaker diarization system for Vietnamese speech combining audio-only pyannote d
 
 ## Setup
 
+### Local
+
 ```bash
 conda activate VieSpeaker2
 ```
@@ -13,6 +15,28 @@ Place your HuggingFace token in a `.env` file at the project root:
 ```
 HUGGINGFACE_ACCESS_TOKEN=hf_...
 ```
+
+### Google Colab
+
+1. Upload `notebook/VieSpeaker2.ipynb` lên Google Colab và mở ra.
+
+2. Vào **Secrets** (biểu tượng 🔑 ở thanh bên trái), thêm secret:
+   - **Name:** `HUGGINGFACE_ACCESS_TOKEN`
+   - **Value:** `hf_...` (token của bạn)
+   - Bật **Notebook access** cho secret này.
+
+3. Tải 2 file model lớn không có trong repo (do vượt giới hạn GitHub) từ Google Drive:
+
+   > 📁 [Download large model files](https://drive.google.com/drive/folders/1uETq0S36474-dRvErdTI3V2CUR-qS2aH?usp=sharing)
+
+   Sau khi tải về, đặt đúng vị trí:
+
+   | File | Đường dẫn đích |
+   |------|----------------|
+   | `glintr100.onnx` | `src/pipeline/audio_visual_pipeline/face_embedding_model/weights/glintr100.onnx` |
+   | `loconet_ava_best.model` | `src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model` |
+
+4. Chạy các cell trong notebook theo thứ tự. Hàm `main` trong notebook tương đương với `python main.py`.
 
 ## Running
 
