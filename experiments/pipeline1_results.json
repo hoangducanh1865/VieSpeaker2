@@ -34,5 +34,23 @@
     "false_alarm_s": 8.268000000000018,
     "missed_detection_s": 128.47700000000015,
     "confusion_s": 56.87499999999988
+  },
+  "interview_clean": {
+    "der": 7.910871588716978,
+    "false_alarm_pct": 0.468102901698381,
+    "missed_detection_pct": 6.322930297184647,
+    "confusion_pct": 1.119838389833951,
+    "purity": 98.78003789998793,
+    "coverage": 98.78003789998793,
+    "f1": 98.78003789998793,
+    "coverage_hyp": 93.06067409737257,
+    "impurity_0": 0.8554372025627416,
+    "impurity_5": 0.7320292811712552,
+    "pollution": 4.776000000000067,
+    "severe_pollution": 4.087000000000046,
+    "total": 593.032,
+    "false_alarm_s": 2.775999999999943,
+    "missed_detection_s": 37.49700000000006,
+    "confusion_s": 6.641000000000076
   }
 }
