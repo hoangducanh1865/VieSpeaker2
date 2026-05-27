@@ -36,6 +36,11 @@ leidenalg>=0.10.0
 # Evaluation charts
 matplotlib>=3.8.0
 
+# Manual diarization Streamlit app
+streamlit>=1.40.0
+plotly>=5.20.0
+pandas>=2.0.0
+
 # Utilities
 huggingface-hub>=0.22.0
 tqdm>=4.65.0
