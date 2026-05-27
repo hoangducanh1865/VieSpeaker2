@@ -20,7 +20,7 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
+share/python-weels/
 *.egg-info/
 .installed.cfg
 *.egg

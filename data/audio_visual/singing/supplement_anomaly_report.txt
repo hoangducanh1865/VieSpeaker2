@@ -1,0 +1,35 @@
+=== SD-FIRST ANOMALY SUPPLEMENT REPORT ===
+Total SD segments evaluated: 14
+KEEP: 14
+RELABEL: 0
+DISCARD: 0
+==========================================
+
+[KEEP] 15.252 34.777 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 35.536 38.742 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 39.788 74.838 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 75.530 78.871 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 79.850 81.453 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 82.094 89.333 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 89.975 109.718 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 111.288 126.526 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 127.319 142.675 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 143.637 162.233 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 163.803 174.518 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 175.683 216.487 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 217.077 224.806 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 225.633 227.540 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.

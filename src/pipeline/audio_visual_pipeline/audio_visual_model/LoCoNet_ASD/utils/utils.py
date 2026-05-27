@@ -35,7 +35,7 @@ def setup_seed(seed):
     return seed
 
 
-def setup_savedir(prefix="", basedir="./experiments", args=None, append_args=[]):
+def setup_savedir(prefix="", basedir="./experiment", args=None, append_args=[]):
     savedir = prefix
     if len(append_args) > 0 and args is not None:
         for arg_opt in append_args:

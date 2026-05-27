@@ -28,7 +28,7 @@ TEST_SET_DIR = os.path.join(DATA_DIR, "diarization_test_set")
 AUDIO_DIR = os.path.join(TEST_SET_DIR, "audio")
 VIDEO_DIR = os.path.join(TEST_SET_DIR, "video")
 LABEL_DIR = os.path.join(TEST_SET_DIR, "label")
-EXPERIMENTS_DIR = os.path.join(_ROOT, "experiments")
+EXPERIMENTS_DIR = os.path.join(_ROOT, "experiment")
 
 P1_SCRIPT = os.path.join(_SRC, "pipeline", "audio_pipeline", "speaker_diarization.py")
 P2_SCRIPT = os.path.join(_SRC, "pipeline", "audio_visual_pipeline", "supplement_pipeline.py")

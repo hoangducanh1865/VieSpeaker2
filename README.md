@@ -84,7 +84,7 @@ python main.py --pipeline <PIPELINE> \
 | `data/diarization/<sample>.txt` | Kết quả Pipeline 1 |
 | `data/audio_visual/<sample>/supplemented_diarization.txt` | Kết quả Pipeline 2 |
 | `data/clean/<sample>/cleansed_diarization.txt` | Kết quả Pipeline 3 |
-| `experiments/pipeline<N>_results.json` | Metrics tích lũy của pipeline N |
-| `experiments/pipeline<N>_table_<sample>_<date>.png` | Bảng metrics đầy đủ theo sample |
-| `experiments/pipeline<N>_*_<date>.png` | Biểu đồ bar/stacked theo pipeline |
-| `experiments/pipeline_comparison_line_<date>.png` | Biểu đồ so sánh P1→P2→P3 |
+| `experiment/pipeline<N>_results.json` | Metrics tích lũy của pipeline N |
+| `experiment/pipeline<N>_table_<sample>_<date>.png` | Bảng metrics đầy đủ theo sample |
+| `experiment/pipeline<N>_*_<date>.png` | Biểu đồ bar/stacked theo pipeline |
+| `experiment/pipeline_comparison_line_<date>.png` | Biểu đồ so sánh P1→P2→P3 |

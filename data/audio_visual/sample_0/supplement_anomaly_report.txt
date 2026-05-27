@@ -1,0 +1,151 @@
+=== SD-FIRST ANOMALY SUPPLEMENT REPORT ===
+Total SD segments evaluated: 72
+KEEP: 61
+RELABEL: 5
+DISCARD: 6
+==========================================
+
+[RELABEL] 0.031 1.415 SPEAKER_01 -> SPEAKER_02
+  Reason: Mapped face SPEAKER_01 mostly inactive (0.00s) while SPEAKER_08 dominates (1.28s / 1.38s).
+[KEEP] 1.415 2.933 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[RELABEL] 3.254 4.705 SPEAKER_01 -> SPEAKER_03
+  Reason: Mapped face SPEAKER_01 mostly inactive (0.00s) while SPEAKER_02 dominates (0.95s / 1.45s).
+[KEEP] 4.722 6.562 SPEAKER_00
+  Reason: Competing visual overlap exists (0.73s) but not strong enough against mapped face (0.94s).
+[KEEP] 7.253 13.160 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 13.902 14.729 SPEAKER_03
+  Reason: Competing visual overlap exists (0.03s) but not strong enough against mapped face (0.00s).
+[KEEP] 14.729 15.320 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[DISCARD] 15.775 17.328 SPEAKER_03
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.77s vs mapped 0.00s.
+[KEEP] 17.378 18.712 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[DISCARD] 19.032 19.741 SPEAKER_02
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.71s vs mapped 0.00s.
+[KEEP] 19.910 21.648 SPEAKER_00
+  Reason: Competing visual overlap exists (0.05s) but not strong enough against mapped face (1.56s).
+[KEEP] 21.648 49.508 SPEAKER_02
+  Reason: Competing visual overlap exists (0.41s) but not strong enough against mapped face (9.75s).
+[KEEP] 50.217 55.415 SPEAKER_03
+  Reason: Competing visual overlap exists (0.20s) but not strong enough against mapped face (2.57s).
+[KEEP] 55.415 74.973 SPEAKER_02
+  Reason: Competing visual overlap exists (1.89s) but not strong enough against mapped face (8.74s).
+[KEEP] 74.973 78.432 SPEAKER_03
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 78.719 91.595 SPEAKER_00
+  Reason: Competing visual overlap exists (2.77s) but not strong enough against mapped face (2.70s).
+[DISCARD] 92.253 93.215 SPEAKER_01
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.32s vs mapped 0.00s.
+[KEEP] 93.215 99.003 SPEAKER_03
+  Reason: Competing visual overlap exists (0.24s) but not strong enough against mapped face (1.32s).
+[DISCARD] 99.695 104.453 SPEAKER_03
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.59s vs mapped 0.00s.
+[KEEP] 105.044 106.883 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 107.288 108.892 SPEAKER_03
+  Reason: Competing visual overlap exists (0.15s) but not strong enough against mapped face (1.07s).
+[KEEP] 108.976 111.035 SPEAKER_00
+  Reason: Competing visual overlap exists (0.73s) but not strong enough against mapped face (0.77s).
+[KEEP] 111.828 114.038 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 114.275 116.182 SPEAKER_03
+  Reason: Competing visual overlap exists (0.00s) but not strong enough against mapped face (0.41s).
+[RELABEL] 116.485 117.397 SPEAKER_00 -> SPEAKER_03
+  Reason: Mapped face SPEAKER_06 mostly inactive (0.24s) while SPEAKER_02 dominates (0.91s / 0.91s).
+[KEEP] 117.498 118.882 SPEAKER_03
+  Reason: Competing visual overlap exists (0.49s) but not strong enough against mapped face (1.06s).
+[KEEP] 118.882 120.400 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 120.485 123.100 SPEAKER_03
+  Reason: Competing visual overlap exists (0.67s) but not strong enough against mapped face (1.94s).
+[KEEP] 123.303 133.478 SPEAKER_00
+  Reason: Competing visual overlap exists (2.07s) but not strong enough against mapped face (3.98s).
+[RELABEL] 133.529 134.744 SPEAKER_03 -> SPEAKER_00
+  Reason: Mapped face SPEAKER_02 mostly inactive (0.00s) while SPEAKER_06 dominates (1.02s / 1.22s).
+[KEEP] 134.744 135.638 SPEAKER_00
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 135.638 140.363 SPEAKER_03
+  Reason: Competing visual overlap exists (0.49s) but not strong enough against mapped face (0.40s).
+[KEEP] 140.752 143.030 SPEAKER_03
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 143.030 180.475 SPEAKER_02
+  Reason: Competing visual overlap exists (1.22s) but not strong enough against mapped face (14.99s).
+[KEEP] 180.998 184.728 SPEAKER_02
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 185.335 187.259 SPEAKER_02
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 187.782 192.777 SPEAKER_02
+  Reason: Competing visual overlap exists (0.96s) but not strong enough against mapped face (1.60s).
+[KEEP] 192.777 194.178 SPEAKER_01
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 194.178 213.365 SPEAKER_02
+  Reason: Competing visual overlap exists (1.60s) but not strong enough against mapped face (14.44s).
+[KEEP] 213.652 221.009 SPEAKER_01
+  Reason: Competing visual overlap exists (0.45s) but not strong enough against mapped face (1.91s).
+[KEEP] 221.009 223.388 SPEAKER_02
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 223.895 225.430 SPEAKER_02
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 228.164 229.447 SPEAKER_01
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 230.071 236.028 SPEAKER_03
+  Reason: Competing visual overlap exists (0.17s) but not strong enough against mapped face (2.88s).
+[KEEP] 236.028 246.743 SPEAKER_02
+  Reason: Competing visual overlap exists (1.13s) but not strong enough against mapped face (3.72s).
+[KEEP] 246.743 253.021 SPEAKER_03
+  Reason: Competing visual overlap exists (0.37s) but not strong enough against mapped face (2.13s).
+[KEEP] 253.021 282.620 SPEAKER_02
+  Reason: Competing visual overlap exists (3.11s) but not strong enough against mapped face (5.66s).
+[KEEP] 283.312 284.965 SPEAKER_02
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 284.965 288.087 SPEAKER_03
+  Reason: Competing visual overlap exists (0.09s) but not strong enough against mapped face (0.00s).
+[DISCARD] 288.813 293.555 SPEAKER_03
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.99s vs mapped 0.00s.
+[KEEP] 293.926 295.985 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 296.339 298.010 SPEAKER_03
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 298.077 300.136 SPEAKER_00
+  Reason: Competing visual overlap exists (0.45s) but not strong enough against mapped face (0.81s).
+[KEEP] 300.912 303.173 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 303.393 305.300 SPEAKER_03
+  Reason: No competing visual speaker inside this SD segment.
+[DISCARD] 305.587 306.194 SPEAKER_00
+  Reason: Segment considered polluted/ambiguous: other speaker overlap 0.34s vs mapped 0.10s.
+[KEEP] 306.633 308.000 SPEAKER_03
+  Reason: Competing visual overlap exists (0.21s) but not strong enough against mapped face (0.00s).
+[KEEP] 308.000 309.502 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 309.569 312.168 SPEAKER_03
+  Reason: Competing visual overlap exists (0.71s) but not strong enough against mapped face (1.51s).
+[KEEP] 312.404 322.580 SPEAKER_00
+  Reason: Competing visual overlap exists (2.13s) but not strong enough against mapped face (3.64s).
+[RELABEL] 322.613 323.862 SPEAKER_03 -> SPEAKER_00
+  Reason: Mapped face SPEAKER_02 mostly inactive (0.00s) while SPEAKER_06 dominates (1.14s / 1.25s).
+[KEEP] 323.862 324.723 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 324.723 329.566 SPEAKER_03
+  Reason: Competing visual overlap exists (0.32s) but not strong enough against mapped face (0.93s).
+[KEEP] 329.566 332.975 SPEAKER_01
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 332.975 341.851 SPEAKER_02
+  Reason: Competing visual overlap exists (0.36s) but not strong enough against mapped face (5.31s).
+[KEEP] 342.425 347.082 SPEAKER_02
+  Reason: Competing visual overlap exists (0.38s) but not strong enough against mapped face (3.24s).
+[KEEP] 347.302 355.925 SPEAKER_01
+  Reason: Competing visual overlap exists (0.65s) but not strong enough against mapped face (1.38s).
+[KEEP] 356.819 361.544 SPEAKER_03
+  Reason: Competing visual overlap exists (0.32s) but not strong enough against mapped face (1.18s).
+[KEEP] 361.645 366.151 SPEAKER_00
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 368.547 369.307 SPEAKER_03
+  Reason: No competing visual speaker inside this SD segment.
+[KEEP] 370.488 371.652 SPEAKER_03
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.
+[KEEP] 371.652 373.019 SPEAKER_01
+  Reason: No reliable SD<->face mapping for this speaker or no visual overlap.

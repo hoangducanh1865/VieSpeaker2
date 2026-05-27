@@ -136,10 +136,6 @@ def evaluate_diarization_files(ref_file_path, hyp_file_path):
 
 # ── Existing bar charts ───────────────────────────────────────────────────────
 
-def _date_tag():
-    return datetime.now().strftime("%Y%m%d")
-
-
 def plot_pipeline1_der_chart(results: dict, experiments_dir: str):
     samples = sorted(results.keys())
     fa = [results[s]["false_alarm_pct"] for s in samples]
@@ -156,7 +152,7 @@ def plot_pipeline1_der_chart(results: dict, experiments_dir: str):
     ax.set_title("Pipeline 1 — DER Components per Sample")
     ax.legend()
     fig.tight_layout()
-    out_path = os.path.join(experiments_dir, f"pipeline1_der_{_date_tag()}.png")
+    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline1_der.png")
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
     print(f"[Chart] Saved: {out_path}")
@@ -180,7 +176,7 @@ def plot_pipeline2_prf_chart(results: dict, experiments_dir: str):
     ax.set_title("Pipeline 2 — Purity / Coverage / F1 per Sample")
     ax.legend()
     fig.tight_layout()
-    out_path = os.path.join(experiments_dir, f"pipeline2_prf_{_date_tag()}.png")
+    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline2_prf.png")
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
     print(f"[Chart] Saved: {out_path}")
@@ -201,7 +197,7 @@ def plot_pipeline3_purity_chart(results_p3: dict, results_p2: dict, experiments_
     ax.set_title("Pipeline 3 — DER Before vs After Cleansing")
     ax.legend()
     fig.tight_layout()
-    out_path = os.path.join(experiments_dir, f"pipeline3_purity_{_date_tag()}.png")
+    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline3_purity.png")
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
     print(f"[Chart] Saved: {out_path}")
@@ -263,7 +259,7 @@ def plot_metrics_table(metrics: dict, sample_key: str, pipeline_num: int, experi
     )
     fig.tight_layout()
     out_path = os.path.join(
-        experiments_dir, f"pipeline{pipeline_num}_table_{sample_key}_{_date_tag()}.png"
+        _dated_dir(experiments_dir), f"pipeline{pipeline_num}_table_{sample_key}.png"
     )
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -273,7 +269,7 @@ def plot_metrics_table(metrics: dict, sample_key: str, pipeline_num: int, experi
 # ── New: cross-pipeline line chart ───────────────────────────────────────────
 
 def plot_pipeline_comparison_line(experiments_dir: str):
-    """Line chart comparing DER, F1, Purity, Coverage across P1→P2→P3."""
+    """Line chart comparing all metrics across P1→P2→P3, one subplot per metric."""
     r = {
         p: _load_results(experiments_dir, p)
         for p in (1, 2, 3)
@@ -285,27 +281,49 @@ def plot_pipeline_comparison_line(experiments_dir: str):
         return
 
     pipeline_labels = ["P1", "P2", "P3"]
+
+    # All metrics matching columns in the all-samples summary table
+    # Organised as two logical rows: error/confusion metrics, then quality/impurity metrics
     metrics_cfg = [
-        ("der",     "DER %",      "#e74c3c"),
-        ("f1",      "F1 %",       "#2ecc71"),
-        ("purity",  "Purity %",   "#3498db"),
-        ("coverage","Coverage %", "#f39c12"),
+        # Row 1 — error & confusion components
+        ("der",                 "DER %",          "#e74c3c"),
+        ("false_alarm_pct",     "FA %",            "#c0392b"),
+        ("missed_detection_pct","MD %",            "#e67e22"),
+        ("confusion_pct",       "Conf %",          "#f39c12"),
+        ("purity",              "Purity %",        "#3498db"),
+        # Row 2 — quality & impurity metrics
+        ("coverage",            "Coverage %",      "#2980b9"),
+        ("f1",                  "F1 %",            "#2ecc71"),
+        ("coverage_hyp",        "H/V %",           "#27ae60"),
+        ("impurity_0",          "Imp₀ %",          "#9b59b6"),
+        ("impurity_5",          "Imp₀.₅ %",        "#8e44ad"),
     ]
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=False)
+    n_metrics = len(metrics_cfg)   # 10
+    n_cols = 5
+    n_rows = (n_metrics + n_cols - 1) // n_cols  # 2
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(n_cols * 4.2, n_rows * 4.0),
+        sharey=False,
+    )
     axes = axes.flatten()
 
     colors_samples = plt.cm.tab10(np.linspace(0, 1, max(len(all_samples), 1)))
 
-    for ax_idx, (metric_key, metric_label, _) in enumerate(metrics_cfg):
+    for ax_idx, (metric_key, metric_label, color) in enumerate(metrics_cfg):
         ax = axes[ax_idx]
+        legend_added = False
         for si, sample in enumerate(all_samples):
             values = []
             xs = []
             for pi, p in enumerate((1, 2, 3)):
                 if sample in r[p] and metric_key in r[p][sample]:
-                    values.append(r[p][sample][metric_key])
-                    xs.append(pi)
+                    v = r[p][sample][metric_key]
+                    if v == v:   # skip NaN
+                        values.append(v)
+                        xs.append(pi)
             if values:
                 ax.plot(
                     xs, values,
@@ -320,27 +338,160 @@ def plot_pipeline_comparison_line(experiments_dir: str):
                     xytext=(4, 2), textcoords="offset points",
                     fontsize=7, color=colors_samples[si],
                 )
+                legend_added = True
 
         ax.set_xticks([0, 1, 2])
         ax.set_xticklabels(pipeline_labels)
-        ax.set_ylabel(metric_label)
-        ax.set_title(metric_label)
+        ax.set_ylabel(metric_label, fontsize=9)
+        ax.set_title(metric_label, fontsize=10, fontweight="bold")
         ax.grid(True, alpha=0.3)
-        if ax_idx == 0:
-            ax.legend(fontsize=7, loc="upper right")
+        if legend_added and ax_idx == 0:
+            ax.legend(fontsize=7, loc="best")
 
-    fig.suptitle("Pipeline Comparison — Metrics across P1 → P2 → P3", fontsize=14, fontweight="bold")
-    fig.tight_layout()
-    out_path = os.path.join(experiments_dir, f"pipeline_comparison_line_{_date_tag()}.png")
-    fig.savefig(out_path, dpi=150)
+    # Hide any unused subplots (in case n_metrics < n_rows*n_cols)
+    for ax_idx in range(n_metrics, len(axes)):
+        axes[ax_idx].set_visible(False)
+
+    # Shared legend below the figure (all sample colours in one row)
+    handles = [
+        plt.Line2D([0], [0], color=colors_samples[si], marker="o",
+                   linewidth=2, label=sample)
+        for si, sample in enumerate(all_samples)
+    ]
+    fig.legend(
+        handles=handles,
+        loc="lower center",
+        ncol=min(len(all_samples), 6),
+        fontsize=8,
+        bbox_to_anchor=(0.5, 0.0),
+        frameon=True,
+    )
+
+    fig.suptitle(
+        "Pipeline Comparison — All Metrics across P1 → P2 → P3",
+        fontsize=14, fontweight="bold", y=1.01,
+    )
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline_comparison_line.png")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[Chart] Saved: {out_path}")
+
+
+# ── New: all-samples summary table ───────────────────────────────────────────
+
+def plot_all_samples_summary_table(results: dict, pipeline_num: int, experiments_dir: str):
+    """
+    Single table image with one row per sample and all key metrics as columns.
+    Generated (and overwritten) every time a new sample result is added.
+    """
+    if not results:
+        return
+
+    COLS = [
+        ("Sample",    None),
+        ("DER %",     "der"),
+        ("FA %",      "false_alarm_pct"),
+        ("MD %",      "missed_detection_pct"),
+        ("Conf %",    "confusion_pct"),
+        ("Purity %",  "purity"),
+        ("Cov %",     "coverage"),
+        ("F1 %",      "f1"),
+        ("H/V %",     "coverage_hyp"),
+        ("Imp₀ %",    "impurity_0"),
+        ("Imp₀.₅ %",  "impurity_5"),
+    ]
+
+    samples = sorted(results.keys())
+    n_rows = len(samples)
+    n_cols = len(COLS)
+
+    # Build cell data
+    cell_text = []
+    der_values = []
+    for sample in samples:
+        m = results[sample]
+        row = [sample]
+        for _, key in COLS[1:]:
+            val = m.get(key, float("nan"))
+            row.append(f"{val:.2f}" if not (val != val) else "—")
+        cell_text.append(row)
+        der_values.append(m.get("der", float("nan")))
+
+    # Find best (lowest) and worst (highest) DER for highlighting
+    valid_ders = [(v, i) for i, v in enumerate(der_values) if v == v]
+    best_row  = min(valid_ders, key=lambda x: x[0])[1] if valid_ders else -1
+    worst_row = max(valid_ders, key=lambda x: x[0])[1] if valid_ders else -1
+
+    fig_w = max(14, n_cols * 1.35)
+    fig_h = max(2.5, n_rows * 0.52 + 1.4)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.axis("off")
+
+    col_labels = [c[0] for c in COLS]
+    tbl = ax.table(
+        cellText=cell_text,
+        colLabels=col_labels,
+        cellLoc="center",
+        loc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(10)
+    tbl.scale(1, 1.6)
+
+    # Header row style
+    for col in range(n_cols):
+        cell = tbl[0, col]
+        cell.set_facecolor("#2c3e50")
+        cell.set_text_props(color="white", fontweight="bold")
+
+    # Data rows style
+    for row_idx in range(1, n_rows + 1):
+        sample_row = row_idx - 1
+        for col in range(n_cols):
+            cell = tbl[row_idx, col]
+            if sample_row == best_row:
+                cell.set_facecolor("#d5f5e3")   # light green — best DER
+            elif sample_row == worst_row:
+                cell.set_facecolor("#fdecea")   # light red   — worst DER
+            else:
+                cell.set_facecolor("#eaf0fb" if row_idx % 2 == 0 else "white")
+            # Bold DER column
+            if col == 1:
+                cell.set_text_props(fontweight="bold")
+
+    # Legend note
+    fig.text(
+        0.01, 0.01,
+        "🟢 best DER   🔴 worst DER   |   FA=False Alarm  MD=Missed Detection  Conf=Speaker Confusion"
+        "  H/V=Hypothesis/Video coverage  Imp=Impurity",
+        fontsize=7, color="#555555", va="bottom",
+    )
+
+    ax.set_title(
+        f"Pipeline {pipeline_num} — All Samples Summary ({n_rows} samples)",
+        fontsize=13, fontweight="bold", pad=14,
+    )
+    fig.tight_layout(rect=[0, 0.04, 1, 1])
+    out_path = os.path.join(
+        _dated_dir(experiments_dir), f"pipeline{pipeline_num}_all_samples_table.png"
+    )
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[Chart] Saved: {out_path}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _dated_dir(experiments_dir: str) -> str:
+    """Return (and create if needed) experiments_dir/YYYYMMDD/ for today."""
+    d = os.path.join(experiments_dir, datetime.now().strftime("%Y%m%d"))
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def _load_results(experiments_dir: str, pipeline_num: int) -> dict:
-    path = os.path.join(experiments_dir, f"pipeline{pipeline_num}_results.json")
+    path = os.path.join(_dated_dir(experiments_dir), f"pipeline{pipeline_num}_results.json")
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
@@ -348,8 +499,7 @@ def _load_results(experiments_dir: str, pipeline_num: int) -> dict:
 
 
 def _save_results(experiments_dir: str, pipeline_num: int, results: dict):
-    os.makedirs(experiments_dir, exist_ok=True)
-    path = os.path.join(experiments_dir, f"pipeline{pipeline_num}_results.json")
+    path = os.path.join(_dated_dir(experiments_dir), f"pipeline{pipeline_num}_results.json")
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
 
@@ -364,7 +514,7 @@ if __name__ == "__main__":
     parser.add_argument("--hyp_path", required=True, help="Hypothesis diarization file")
     parser.add_argument("--ref_path", required=True, help="Reference diarization file")
     parser.add_argument("--sample_key", default="unknown", help="Sample name (used as chart label)")
-    parser.add_argument("--experiments_dir", default="experiments", help="Directory for charts and JSON")
+    parser.add_argument("--experiments_dir", default="experiment", help="Directory for charts and JSON")
 
     args = parser.parse_args()
 
@@ -383,6 +533,7 @@ if __name__ == "__main__":
         results_p2 = _load_results(args.experiments_dir, 2)
         plot_pipeline3_purity_chart(results, results_p2, args.experiments_dir)
 
-    # New: per-sample table + cross-pipeline line chart
+    # New: per-sample table + all-samples summary table + cross-pipeline line chart
     plot_metrics_table(metrics, args.sample_key, args.pipeline, args.experiments_dir)
+    plot_all_samples_summary_table(results, args.pipeline, args.experiments_dir)
     plot_pipeline_comparison_line(args.experiments_dir)
