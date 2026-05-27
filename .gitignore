@@ -227,16 +227,10 @@ data/diarization_test_set/audio/*.wav
 data/diarization_test_set/video/*.mp4
 pipeline/face_pipeline/results_supplement/tracks/*
 
-# Pipeline outputs
-data/diarization/
-data/audio_visual/
-data/clean/
-experiments/
-debug_output.txt
+# Intermediate pipeline outputs (regenerable, too large/numerous to track)
+data/audio_visual/tracks/
+data/audio_visual/pipeline_state.pkl
 
-# Large model files (> 50MB)
-src/pipeline/clean_pipeline/models/ecapa_tdnn/exps/pretrain.model
-src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model
+# Large model files (> 100MB, cannot push to GitHub)
 src/pipeline/audio_visual_pipeline/face_embedding_model/weights/glintr100.onnx
-src/pipeline/**/*.model
-src/pipeline/**/*.onnx
+src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model

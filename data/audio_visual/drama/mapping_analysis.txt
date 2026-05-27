@@ -1,0 +1,38 @@
+=== SD <-> FACE SPEAKER MAPPING REPORT ===
+Audio diarization: drama.txt
+Video diarization: video_diarization.txt
+Match threshold: 1.50s
+==========================================
+
+[COST MATRIX TABLE - TOTAL OVERLAP (seconds)]
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+
+| Audio\Video | SPEAKER_00 | SPEAKER_01 | SPEAKER_02 | SPEAKER_03 | SPEAKER_04 | SPEAKER_05 | SPEAKER_06 | SPEAKER_07 | SPEAKER_08 |
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+
+|SPEAKER_00   |       10.55|        0.00|        0.56|        2.47|        0.00|        0.00|        0.63|        0.00|        0.00|
+|SPEAKER_01   |        1.95|        0.00|        0.00|        0.00|        0.00|        0.00|        9.26|        0.00|        0.00|
+|SPEAKER_02   |        0.00|        0.00|        0.00|        2.74|        0.00|        0.00|        0.00|        0.00|        0.00|
+|SPEAKER_03   |        4.10|        0.00|        2.16|       45.73|        0.00|        1.95|        0.42|        0.45|        0.00|
+|SPEAKER_04   |        0.00|        0.56|        0.41|        0.00|        6.73|        0.00|        0.00|        0.00|        0.00|
+|SPEAKER_05   |        0.00|        0.00|        0.00|        0.00|       14.98|        0.00|        0.00|        0.00|        1.10|
+|SPEAKER_06   |        0.00|        4.99|        0.00|        0.00|        1.49|        0.00|        5.26|        0.00|       15.42|
+|SPEAKER_07   |        0.00|       20.86|        0.00|        0.00|        0.84|        0.00|        0.00|        0.00|        0.56|
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+------------+
+
+[MATCHES]
+  [+] SPEAKER_00      <-> SPEAKER_00      | overlap=10.55s
+  [+] SPEAKER_01      <-> SPEAKER_06      | overlap=9.26s
+  [REJECTED] SPEAKER_02      <-> SPEAKER_05      | overlap=0.00s
+  [+] SPEAKER_03      <-> SPEAKER_03      | overlap=45.73s
+  [REJECTED] SPEAKER_04      <-> SPEAKER_02      | overlap=0.41s
+  [+] SPEAKER_05      <-> SPEAKER_04      | overlap=14.98s
+  [+] SPEAKER_06      <-> SPEAKER_08      | overlap=15.42s
+  [+] SPEAKER_07      <-> SPEAKER_01      | overlap=20.86s
+
+[UNMAPPED AUDIO SPEAKERS]
+  [-] SPEAKER_02      | best_overlap=2.74s with SPEAKER_03
+  [-] SPEAKER_04      | best_overlap=6.73s with SPEAKER_04
+
+[UNMAPPED VIDEO SPEAKERS]
+  [-] SPEAKER_02      | best_overlap=2.16s with SPEAKER_03
+  [-] SPEAKER_05      | best_overlap=1.95s with SPEAKER_03
+  [-] SPEAKER_07      | best_overlap=0.45s with SPEAKER_03

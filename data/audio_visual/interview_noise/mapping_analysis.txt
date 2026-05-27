@@ -1,0 +1,34 @@
+=== SD <-> FACE SPEAKER MAPPING REPORT ===
+Audio diarization: interview_noise.txt
+Video diarization: video_diarization.txt
+Match threshold: 1.50s
+==========================================
+
+[COST MATRIX TABLE - TOTAL OVERLAP (seconds)]
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+
+| Audio\Video | SPEAKER_00 | SPEAKER_01 | SPEAKER_02 | SPEAKER_03 | SPEAKER_04 | SPEAKER_05 | SPEAKER_06 | SPEAKER_07 |
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+
+|SPEAKER_00   |        0.00|        0.96|        0.00|        0.00|        0.64|        0.00|        0.00|        0.00|
+|SPEAKER_01   |        0.00|        4.15|        0.00|        0.00|        0.00|        0.00|        0.00|        0.00|
+|SPEAKER_02   |        0.48|       38.57|       11.69|        0.00|       21.70|        0.00|        5.22|        0.00|
+|SPEAKER_03   |        0.00|       11.86|       15.98|        0.00|       11.93|        0.00|        1.37|        0.00|
+|SPEAKER_04   |        0.00|       17.38|       16.06|        0.00|        6.42|        0.48|        1.03|        0.00|
++-------------+------------+------------+------------+------------+------------+------------+------------+------------+
+
+[MATCHES]
+  [REJECTED] SPEAKER_00      <-> SPEAKER_03      | overlap=0.00s
+  [REJECTED] SPEAKER_01      <-> SPEAKER_00      | overlap=0.00s
+  [+] SPEAKER_02      <-> SPEAKER_01      | overlap=38.57s
+  [+] SPEAKER_03      <-> SPEAKER_04      | overlap=11.93s
+  [+] SPEAKER_04      <-> SPEAKER_02      | overlap=16.06s
+
+[UNMAPPED AUDIO SPEAKERS]
+  [-] SPEAKER_00      | best_overlap=0.96s with SPEAKER_01
+  [-] SPEAKER_01      | best_overlap=4.15s with SPEAKER_01
+
+[UNMAPPED VIDEO SPEAKERS]
+  [-] SPEAKER_00      | best_overlap=0.48s with SPEAKER_02
+  [-] SPEAKER_03      | best_overlap=0.00s with N/A
+  [-] SPEAKER_05      | best_overlap=0.48s with SPEAKER_04
+  [-] SPEAKER_06      | best_overlap=5.22s with SPEAKER_02
+  [-] SPEAKER_07      | best_overlap=0.00s with N/A
