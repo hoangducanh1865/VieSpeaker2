@@ -161,7 +161,8 @@ def main():
         help=f"Sample name. One of {ALL_SAMPLES}. Omit to run all samples.",
     )
     # Pipeline 1 options
-    parser.add_argument("--p1_model", default="pyannote/speaker-diarization-3.1")
+    parser.add_argument("--p1_model", default="pyannote/speaker-diarization-precision-2",
+                        help="Pipeline 1 model. Default: precision-2 (cloud). Alt: pyannote/speaker-diarization-3.1 (local).")
     parser.add_argument("--min_segment_duration", type=float, default=0.5)
     parser.add_argument("--max_gap_threshold", type=float, default=0.5)
     # Pipeline 2 options

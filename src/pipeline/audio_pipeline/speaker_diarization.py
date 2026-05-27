@@ -37,7 +37,7 @@ from pyannote.audio import Pipeline
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
-warnings.filterwarnings("ignore", message=".*std\(\): degrees of freedom is <= 0.*")
+warnings.filterwarnings("ignore", message=r".*std\(\): degrees of freedom is <= 0.*")
 warnings.filterwarnings("ignore", category=UserWarning, module="pyannote.audio.models.blocks.pooling")
 
 
@@ -47,7 +47,7 @@ class SpeakerDiarizer:
     def __init__(
         self,
         token: str,
-        model_name: str = "pyannote/speaker-diarization-3.1",
+        model_name: str = "pyannote/speaker-diarization-precision-2",
         min_segment_duration: float = 0.5,
         max_gap_threshold: float = 0.5,
     ):
@@ -82,6 +82,13 @@ class SpeakerDiarizer:
                 print("Pipeline loaded on CPU.")
 
     def diarize(self, audio_path: str, output_dir: str) -> str:
+        # Result cache: skip cloud / local inference if output already exists.
+        # Useful when re-running the orchestrator without wanting to redo P1.
+        output_path = os.path.join(output_dir, f"{Path(audio_path).stem}.txt")
+        if os.path.exists(output_path):
+            print(f"[Cache] Output already exists, skipping inference: {output_path}")
+            return output_path
+
         self.load_pipeline()
 
         if not os.path.exists(audio_path):
@@ -98,9 +105,16 @@ class SpeakerDiarizer:
             raise
 
         raw_segments = []
-        annotation = getattr(result, "speaker_diarization", result)
-        for turn, _, speaker in annotation.itertracks(yield_label=True):
-            raw_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
+        if "precision" in self.model_name.lower():
+            # pyannote/speaker-diarization-precision-* (pyannoteAI cloud)
+            # yields (turn, speaker) — no track label
+            for turn, speaker in result.speaker_diarization:
+                raw_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
+        else:
+            # Standard pyannote Annotation (e.g. speaker-diarization-3.1)
+            # yields (turn, track, speaker)
+            for turn, _, speaker in result.itertracks(yield_label=True):
+                raw_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
 
         print(f"Raw segments found: {len(raw_segments)}")
 
@@ -179,17 +193,30 @@ def main():
     parser = argparse.ArgumentParser(description="Pipeline 1: Speaker Diarization (pyannote)")
     parser.add_argument("--audio_path", required=True, help="Path to input WAV file")
     parser.add_argument("--output_dir", default="data/diarization", help="Output directory")
-    parser.add_argument("--model", default="pyannote/speaker-diarization-3.1")
+    parser.add_argument("--model", default="pyannote/speaker-diarization-precision-2",
+                        help="Model ID. Use 'pyannote/speaker-diarization-precision-2' (default, cloud)"
+                             " or 'pyannote/speaker-diarization-3.1' (local GPU/CPU).")
     parser.add_argument("--min_segment_duration", type=float, default=0.5)
     parser.add_argument("--max_gap_threshold", type=float, default=0.5)
     args = parser.parse_args()
 
-    PYANNOTE_KEY = os.getenv("HUGGINGFACE_ACCESS_TOKEN")
-    if not PYANNOTE_KEY:
-        raise RuntimeError("Missing HUGGINGFACE_ACCESS_TOKEN in environment or .env file")
+    # Token selection: precision-* uses PYANNOTE_API_KEY (pyannoteAI cloud key),
+    # all other models use HUGGINGFACE_ACCESS_TOKEN.
+    if "precision" in args.model.lower():
+        api_key = os.getenv("PYANNOTE_API_KEY") or os.getenv("HUGGINGFACE_ACCESS_TOKEN")
+        if not api_key:
+            raise RuntimeError(
+                "Missing PYANNOTE_API_KEY in environment or .env file. "
+                "Create an API key at https://dashboard.pyannote.ai"
+            )
+        print(f"[P1] Using pyannoteAI cloud model: {args.model}")
+    else:
+        api_key = os.getenv("HUGGINGFACE_ACCESS_TOKEN")
+        if not api_key:
+            raise RuntimeError("Missing HUGGINGFACE_ACCESS_TOKEN in environment or .env file")
 
     diarizer = SpeakerDiarizer(
-        token=PYANNOTE_KEY,
+        token=api_key,
         model_name=args.model,
         min_segment_duration=args.min_segment_duration,
         max_gap_threshold=args.max_gap_threshold,
