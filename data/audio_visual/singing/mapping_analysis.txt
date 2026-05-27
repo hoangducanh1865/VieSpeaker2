@@ -5,6 +5,23 @@ Match threshold: 1.50s
 ==========================================
 
 [COST MATRIX TABLE - TOTAL OVERLAP (seconds)]
-  Matrix is empty (missing audio speakers or video speakers).
++-------------+------------+------------+------------+------------+------------+------------+------------+
+| Audio\Video | SPEAKER_00 | SPEAKER_01 | SPEAKER_02 | SPEAKER_03 | SPEAKER_04 | SPEAKER_05 | SPEAKER_06 |
++-------------+------------+------------+------------+------------+------------+------------+------------+
+|SPEAKER_00   |        3.21|       17.10|        0.00|        0.00|        0.46|        0.00|        0.00|
+|SPEAKER_01   |        5.08|       13.29|        0.86|        1.52|        2.00|        7.10|        0.24|
++-------------+------------+------------+------------+------------+------------+------------+------------+
 
-[WARN] Empty speaker set. No mapping possible.
+[MATCHES]
+  [+] SPEAKER_00      <-> SPEAKER_01      | overlap=17.10s
+  [+] SPEAKER_01      <-> SPEAKER_05      | overlap=7.10s
+
+[UNMAPPED AUDIO SPEAKERS]
+  None
+
+[UNMAPPED VIDEO SPEAKERS]
+  [-] SPEAKER_00      | best_overlap=5.08s with SPEAKER_01
+  [-] SPEAKER_02      | best_overlap=0.86s with SPEAKER_01
+  [-] SPEAKER_03      | best_overlap=1.52s with SPEAKER_01
+  [-] SPEAKER_04      | best_overlap=2.00s with SPEAKER_01
+  [-] SPEAKER_06      | best_overlap=0.24s with SPEAKER_01
