@@ -15,6 +15,17 @@ from scipy.io import wavfile
 
 import sys
 import sklearn
+import onnxruntime as ort
+
+# Detect ONNX Runtime CUDA support once at import time
+_ORT_AVAILABLE_PROVIDERS = ort.get_available_providers()
+_ORT_CUDA_AVAILABLE = 'CUDAExecutionProvider' in _ORT_AVAILABLE_PROVIDERS
+_ORT_PROVIDERS = (
+    ['CUDAExecutionProvider', 'CPUExecutionProvider']
+    if _ORT_CUDA_AVAILABLE else ['CPUExecutionProvider']
+)
+# insightface ctx_id: 0 = GPU device 0, -1 = CPU
+_INSIGHTFACE_CTX_ID = 0 if _ORT_CUDA_AVAILABLE else -1
 
 _AV_DIR = os.path.dirname(os.path.abspath(__file__))
 for _p in [
@@ -77,7 +88,7 @@ class ASVDataPipeline:
         scene_cut_debounce=1,
     ):
         # 1. Initialize Detector & Tracker
-        self.detector = FaceDetector(onnx_file=detector_path)
+        self.detector = FaceDetector(onnx_file=detector_path, providers=_ORT_PROVIDERS)
         self.det_input_size = int(det_input_size)
         self.det_thresh = float(det_thresh)
         self.tracker_max_age = int(tracker_max_age)
@@ -95,7 +106,7 @@ class ASVDataPipeline:
         # Note: Download a model like 'glintr100.onnx' or 'w600k_r50.onnx' from InsightFace
         print(f"Loading ArcFace model from {arcface_path}...")
         self.recognizer = get_model(arcface_path)
-        self.recognizer.prepare(ctx_id=0) # Change to -1 for CPU, 0 for GPU
+        self.recognizer.prepare(ctx_id=_INSIGHTFACE_CTX_ID)
         
         self.out_dir = out_dir
         os.makedirs(self.out_dir, exist_ok=True)

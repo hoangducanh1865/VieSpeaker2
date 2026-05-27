@@ -53,15 +53,21 @@ def distance2kps(points, distance, max_shape=None):
 
 
 class FaceDetector:
-    def __init__(self, onnx_file=None, session=None):
-        from onnxruntime import InferenceSession
+    def __init__(self, onnx_file=None, session=None, providers=None):
+        from onnxruntime import InferenceSession, get_available_providers
         self.session = session
 
         self.batched = False
         if self.session is None:
             assert onnx_file is not None
             assert os.path.exists(onnx_file)
-            self.session = InferenceSession(onnx_file, providers=['CUDAExecutionProvider'])
+            if providers is None:
+                providers = (
+                    ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                    if 'CUDAExecutionProvider' in get_available_providers()
+                    else ['CPUExecutionProvider']
+                )
+            self.session = InferenceSession(onnx_file, providers=providers)
 
         self.nms_thresh = 0.4
         self.center_cache = {}

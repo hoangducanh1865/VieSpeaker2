@@ -1,0 +1,23 @@
+=== SD <-> FACE SPEAKER MAPPING REPORT ===
+Audio diarization: interview_clean.txt
+Video diarization: video_diarization.txt
+Match threshold: 1.50s
+==========================================
+
+[COST MATRIX TABLE - TOTAL OVERLAP (seconds)]
++-------------+------------+------------+
+| Audio\Video | SPEAKER_00 | SPEAKER_01 |
++-------------+------------+------------+
+|SPEAKER_00   |        4.48|       71.20|
+|SPEAKER_01   |      336.77|       29.07|
++-------------+------------+------------+
+
+[MATCHES]
+  [+] SPEAKER_00      <-> SPEAKER_01      | overlap=71.20s
+  [+] SPEAKER_01      <-> SPEAKER_00      | overlap=336.77s
+
+[UNMAPPED AUDIO SPEAKERS]
+  None
+
+[UNMAPPED VIDEO SPEAKERS]
+  None
