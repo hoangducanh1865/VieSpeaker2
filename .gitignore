@@ -233,3 +233,10 @@ data/audio_visual/
 data/clean/
 experiments/
 debug_output.txt
+
+# Large model files (> 50MB)
+src/pipeline/clean_pipeline/models/ecapa_tdnn/exps/pretrain.model
+src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model
+src/pipeline/audio_visual_pipeline/face_embedding_model/weights/glintr100.onnx
+src/pipeline/**/*.model
+src/pipeline/**/*.onnx
