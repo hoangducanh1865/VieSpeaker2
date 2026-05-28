@@ -33,6 +33,14 @@ numpy>=1.24.0
 igraph>=1.0.0
 leidenalg>=0.10.0
 
+# VBx method (Pipeline 3)
+h5py>=3.0.0
+kaldi-io>=0.9.1
+
+# DOVER-Lap method (Pipeline 3)
+intervaltree>=3.0.1
+click>=7.1.2
+
 # Evaluation charts
 matplotlib>=3.8.0
 

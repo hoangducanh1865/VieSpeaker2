@@ -95,6 +95,12 @@ def run_pipeline_3(
     audio_path = os.path.join(AUDIO_DIR, f"{sample}.wav")
     sample_out = os.path.join(output_dir, sample)
     os.makedirs(sample_out, exist_ok=True)
+
+    method_extra = list(extra_args)
+    if method == "dover-lap":
+        p1_path = os.path.join(DATA_DIR, "diarization", f"{sample}.txt")
+        method_extra += ["--diarization_path2", p1_path]
+
     ok = _run(
         [
             sys.executable, P3_SCRIPT,
@@ -102,7 +108,7 @@ def run_pipeline_3(
             "--diarization_path", diarization_path,
             "--audio_path", audio_path,
             "--output_dir", sample_out,
-        ] + extra_args,
+        ] + method_extra,
         f"Pipeline 3 — Cleansing ({method}): {sample}",
     )
     output_path = os.path.join(sample_out, "cleansed_diarization.txt")
@@ -113,22 +119,22 @@ def run_pipeline_3(
     return output_path
 
 
-def run_evaluation(pipeline_num: int, sample: str, hyp_path: str, ref_path: str):
+def run_evaluation(pipeline_num: int, sample: str, hyp_path: str, ref_path: str, method: str = ""):
     if not os.path.exists(hyp_path):
         print(f"[EVAL] Skipping — hypothesis file missing: {hyp_path}")
         return
     os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
-    _run(
-        [
-            sys.executable, EVAL_SCRIPT,
-            "--pipeline", str(pipeline_num),
-            "--hyp_path", hyp_path,
-            "--ref_path", ref_path,
-            "--sample_key", sample,
-            "--experiments_dir", EXPERIMENTS_DIR,
-        ],
-        f"Evaluation — Pipeline {pipeline_num}: {sample}",
-    )
+    cmd = [
+        sys.executable, EVAL_SCRIPT,
+        "--pipeline", str(pipeline_num),
+        "--hyp_path", hyp_path,
+        "--ref_path", ref_path,
+        "--sample_key", sample,
+        "--experiments_dir", EXPERIMENTS_DIR,
+    ]
+    if pipeline_num == 3 and method:
+        cmd += ["--method", method]
+    _run(cmd, f"Evaluation — Pipeline {pipeline_num}: {sample}")
 
 
 def _p3_extra_args(args) -> list:
@@ -140,12 +146,27 @@ def _p3_extra_args(args) -> list:
             "--threshold", str(args.threshold),
             "--min_cluster_size", str(args.min_cluster_size),
         ]
-    else:
+    elif args.method == "cdgcn":
         extra += [
             "--k", str(args.k),
             "--resolution", str(args.resolution),
             "--purity_threshold", str(args.purity_threshold),
         ]
+    elif args.method == "vbx":
+        extra += [
+            "--vbx_loop_prob", str(args.vbx_loop_prob),
+            "--vbx_fa", str(args.vbx_fa),
+            "--vbx_fb", str(args.vbx_fb),
+            "--vbx_max_speakers", str(args.vbx_max_speakers),
+            "--vbx_lda_dim", str(args.vbx_lda_dim),
+            "--vbx_init_smoothing", str(args.vbx_init_smoothing),
+        ]
+    elif args.method == "nme-sc":
+        extra += [
+            "--max_speakers", str(args.max_speakers),
+            "--max_rp_threshold", str(args.max_rp_threshold),
+        ]
+    # dover-lap: diarization_path2 is injected in run_pipeline_3
     extra += ["--device", args.device]
     return extra
 
@@ -168,7 +189,8 @@ def main():
     # Pipeline 2 options
     parser.add_argument("--asd_model", choices=["lr_asd", "loconet"], default="lr_asd")
     # Pipeline 3 options
-    parser.add_argument("--method", choices=["ahc", "cdgcn"], default="ahc")
+    parser.add_argument("--method", choices=["ahc", "cdgcn", "vbx", "dover-lap", "nme-sc"],
+                        default="ahc")
     parser.add_argument("--device", default="cuda")
     # AHC params
     parser.add_argument("--merge_gap_sec", type=float, default=0.5)
@@ -180,6 +202,16 @@ def main():
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--resolution", type=float, default=0.6)
     parser.add_argument("--purity_threshold", type=float, default=0.8)
+    # VBx params
+    parser.add_argument("--vbx_loop_prob", type=float, default=0.9)
+    parser.add_argument("--vbx_fa", type=float, default=0.3)
+    parser.add_argument("--vbx_fb", type=float, default=17.0)
+    parser.add_argument("--vbx_max_speakers", type=int, default=10)
+    parser.add_argument("--vbx_lda_dim", type=int, default=128)
+    parser.add_argument("--vbx_init_smoothing", type=float, default=5.0)
+    # NME-SC params
+    parser.add_argument("--max_speakers", type=int, default=8)
+    parser.add_argument("--max_rp_threshold", type=float, default=0.25)
 
     args = parser.parse_args()
 
@@ -221,7 +253,7 @@ def main():
                 print("        Run --pipeline 2 first.")
                 continue
             hyp = run_pipeline_3(sample, p2_hyp, args.method, p3_out, p3_extra)
-            run_evaluation(3, sample, hyp, ref_path)
+            run_evaluation(3, sample, hyp, ref_path, method=args.method)
 
         elif args.pipeline == "all":
             hyp1 = run_pipeline_1(
@@ -234,7 +266,7 @@ def main():
             run_evaluation(2, sample, hyp2, ref_path)
 
             hyp3 = run_pipeline_3(sample, hyp2, args.method, p3_out, p3_extra)
-            run_evaluation(3, sample, hyp3, ref_path)
+            run_evaluation(3, sample, hyp3, ref_path, method=args.method)
 
     print("\nDone.")
 

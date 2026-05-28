@@ -233,3 +233,6 @@ data/audio_visual/pipeline_state.pkl
 # Large model files (> 100MB, cannot push to GitHub)
 src/pipeline/audio_visual_pipeline/face_embedding_model/weights/glintr100.onnx
 src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model
+
+# File Claude plan
+claude_plan.md

@@ -182,7 +182,7 @@ def plot_pipeline2_prf_chart(results: dict, experiments_dir: str):
     print(f"[Chart] Saved: {out_path}")
 
 
-def plot_pipeline3_purity_chart(results_p3: dict, results_p2: dict, experiments_dir: str):
+def plot_pipeline3_purity_chart(results_p3: dict, results_p2: dict, experiments_dir: str, method: str = ""):
     samples = sorted(results_p3.keys())
     der_after = [results_p3[s]["der"] for s in samples]
     der_before = [results_p2.get(s, {}).get("der", float("nan")) for s in samples]
@@ -194,10 +194,12 @@ def plot_pipeline3_purity_chart(results_p3: dict, results_p2: dict, experiments_
     ax.set_xticks(x)
     ax.set_xticklabels(samples, rotation=20, ha="right")
     ax.set_ylabel("DER %")
-    ax.set_title("Pipeline 3 — DER Before vs After Cleansing")
+    method_label = f" [{method}]" if method else ""
+    ax.set_title(f"Pipeline 3{method_label} — DER Before vs After Cleansing")
     ax.legend()
     fig.tight_layout()
-    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline3_purity.png")
+    suffix = f"_{method}" if method else ""
+    out_path = os.path.join(_dated_dir(experiments_dir), f"pipeline3{suffix}_purity.png")
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
     print(f"[Chart] Saved: {out_path}")
@@ -205,7 +207,7 @@ def plot_pipeline3_purity_chart(results_p3: dict, results_p2: dict, experiments_
 
 # ── New: metrics summary table ────────────────────────────────────────────────
 
-def plot_metrics_table(metrics: dict, sample_key: str, pipeline_num: int, experiments_dir: str):
+def plot_metrics_table(metrics: dict, sample_key: str, pipeline_num: int, experiments_dir: str, method: str = ""):
     """Render a full metrics summary table as a PNG for one sample."""
     rows = [
         ["Overall DER",           f"{metrics['der']:.2f}%"],
@@ -258,8 +260,9 @@ def plot_metrics_table(metrics: dict, sample_key: str, pipeline_num: int, experi
         fontsize=13, fontweight="bold", pad=12,
     )
     fig.tight_layout()
+    suffix = f"_{method}" if (pipeline_num == 3 and method) else ""
     out_path = os.path.join(
-        _dated_dir(experiments_dir), f"pipeline{pipeline_num}_table_{sample_key}.png"
+        _dated_dir(experiments_dir), f"pipeline{pipeline_num}{suffix}_table_{sample_key}.png"
     )
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -272,8 +275,14 @@ def plot_pipeline_comparison_line(experiments_dir: str):
     """Line chart comparing all metrics across P1→P2→P3, one subplot per metric."""
     r = {
         p: _load_results(experiments_dir, p)
-        for p in (1, 2, 3)
+        for p in (1, 2)
     }
+    # For pipeline 3, merge all method results (best DER wins per sample)
+    r[3] = {}
+    for m in ("ahc", "cdgcn", "vbx", "dover-lap", "nme-sc", ""):
+        for sample, metrics in _load_results(experiments_dir, 3, m).items():
+            if sample not in r[3] or metrics["der"] < r[3][sample]["der"]:
+                r[3][sample] = metrics
 
     # Collect samples that appear in at least one pipeline
     all_samples = sorted(set().union(*[set(r[p].keys()) for p in (1, 2, 3)]))
@@ -380,7 +389,7 @@ def plot_pipeline_comparison_line(experiments_dir: str):
 
 # ── New: all-samples summary table ───────────────────────────────────────────
 
-def plot_all_samples_summary_table(results: dict, pipeline_num: int, experiments_dir: str):
+def plot_all_samples_summary_table(results: dict, pipeline_num: int, experiments_dir: str, method: str = ""):
     """
     Single table image with one row per sample and all key metrics as columns.
     Generated (and overwritten) every time a new sample result is added.
@@ -463,18 +472,20 @@ def plot_all_samples_summary_table(results: dict, pipeline_num: int, experiments
     # Legend note
     fig.text(
         0.01, 0.01,
-        "🟢 best DER   🔴 worst DER   |   FA=False Alarm  MD=Missed Detection  Conf=Speaker Confusion"
+        "[green]=best DER  [red]=worst DER  |  FA=False Alarm  MD=Missed Detection  Conf=Speaker Confusion"
         "  H/V=Hypothesis/Video coverage  Imp=Impurity",
         fontsize=7, color="#555555", va="bottom",
     )
 
+    method_label = f" [{method}]" if (pipeline_num == 3 and method) else ""
     ax.set_title(
-        f"Pipeline {pipeline_num} — All Samples Summary ({n_rows} samples)",
+        f"Pipeline {pipeline_num}{method_label} — All Samples Summary ({n_rows} samples)",
         fontsize=13, fontweight="bold", pad=14,
     )
     fig.tight_layout(rect=[0, 0.04, 1, 1])
+    suffix = f"_{method}" if (pipeline_num == 3 and method) else ""
     out_path = os.path.join(
-        _dated_dir(experiments_dir), f"pipeline{pipeline_num}_all_samples_table.png"
+        _dated_dir(experiments_dir), f"pipeline{pipeline_num}{suffix}_all_samples_table.png"
     )
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -490,18 +501,66 @@ def _dated_dir(experiments_dir: str) -> str:
     return d
 
 
-def _load_results(experiments_dir: str, pipeline_num: int) -> dict:
-    path = os.path.join(_dated_dir(experiments_dir), f"pipeline{pipeline_num}_results.json")
+def _results_filename(pipeline_num: int, method: str = "") -> str:
+    suffix = f"_{method}" if (pipeline_num == 3 and method) else ""
+    return f"pipeline{pipeline_num}{suffix}_results.json"
+
+
+def _load_results(experiments_dir: str, pipeline_num: int, method: str = "") -> dict:
+    path = os.path.join(_dated_dir(experiments_dir), _results_filename(pipeline_num, method))
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
     return {}
 
 
-def _save_results(experiments_dir: str, pipeline_num: int, results: dict):
-    path = os.path.join(_dated_dir(experiments_dir), f"pipeline{pipeline_num}_results.json")
+def _save_results(experiments_dir: str, pipeline_num: int, results: dict, method: str = ""):
+    path = os.path.join(_dated_dir(experiments_dir), _results_filename(pipeline_num, method))
     with open(path, "w") as f:
         json.dump(results, f, indent=2)
+
+
+def plot_pipeline3_methods_comparison(experiments_dir: str):
+    """Grouped bar chart comparing DER across all 5 P3 methods, one group per sample."""
+    all_methods = ["ahc", "cdgcn", "vbx", "dover-lap", "nme-sc"]
+    method_results = {m: _load_results(experiments_dir, 3, m) for m in all_methods}
+
+    # Only plot if at least 2 methods have data
+    methods_with_data = [m for m in all_methods if method_results[m]]
+    if len(methods_with_data) < 2:
+        return
+
+    all_samples = sorted(set().union(*[set(method_results[m].keys()) for m in methods_with_data]))
+    if not all_samples:
+        return
+
+    n_methods = len(methods_with_data)
+    n_samples = len(all_samples)
+    x = np.arange(n_samples)
+    width = 0.8 / n_methods
+
+    colors = ["#4c72b0", "#dd8452", "#55a868", "#c44e52", "#8172b2"]
+    fig, ax = plt.subplots(figsize=(max(8, n_samples * 1.8), 5))
+
+    for mi, m in enumerate(methods_with_data):
+        ders = [method_results[m].get(s, {}).get("der", float("nan")) for s in all_samples]
+        offset = (mi - n_methods / 2 + 0.5) * width
+        bars = ax.bar(x + offset, ders, width=width, label=m, color=colors[mi % len(colors)])
+        for bar, val in zip(bars, ders):
+            if val == val:  # not NaN
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
+                        f"{val:.1f}", ha="center", va="bottom", fontsize=7, rotation=90)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_samples, rotation=20, ha="right")
+    ax.set_ylabel("DER %")
+    ax.set_title("Pipeline 3 — DER Comparison across Methods")
+    ax.legend(title="Method")
+    fig.tight_layout()
+    out_path = os.path.join(_dated_dir(experiments_dir), "pipeline3_methods_comparison.png")
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"[Chart] Saved: {out_path}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -515,25 +574,30 @@ if __name__ == "__main__":
     parser.add_argument("--ref_path", required=True, help="Reference diarization file")
     parser.add_argument("--sample_key", default="unknown", help="Sample name (used as chart label)")
     parser.add_argument("--experiments_dir", default="experiment", help="Directory for charts and JSON")
+    parser.add_argument("--method", default="", help="Cleansing method (pipeline 3 only)")
 
     args = parser.parse_args()
 
     metrics = evaluate_diarization_files(args.ref_path, args.hyp_path)
 
-    results = _load_results(args.experiments_dir, args.pipeline)
+    results = _load_results(args.experiments_dir, args.pipeline, args.method)
     results[args.sample_key] = metrics
-    _save_results(args.experiments_dir, args.pipeline, results)
+    _save_results(args.experiments_dir, args.pipeline, results, args.method)
 
-    # Existing bar/stacked charts
+    # Bar/stacked charts
     if args.pipeline == 1:
         plot_pipeline1_der_chart(results, args.experiments_dir)
     elif args.pipeline == 2:
         plot_pipeline2_prf_chart(results, args.experiments_dir)
     elif args.pipeline == 3:
         results_p2 = _load_results(args.experiments_dir, 2)
-        plot_pipeline3_purity_chart(results, results_p2, args.experiments_dir)
+        plot_pipeline3_purity_chart(results, results_p2, args.experiments_dir, args.method)
 
-    # New: per-sample table + all-samples summary table + cross-pipeline line chart
-    plot_metrics_table(metrics, args.sample_key, args.pipeline, args.experiments_dir)
-    plot_all_samples_summary_table(results, args.pipeline, args.experiments_dir)
+    # Per-sample table + all-samples summary table + cross-pipeline line chart
+    plot_metrics_table(metrics, args.sample_key, args.pipeline, args.experiments_dir, args.method)
+    plot_all_samples_summary_table(results, args.pipeline, args.experiments_dir, args.method)
     plot_pipeline_comparison_line(args.experiments_dir)
+
+    # P3 multi-method comparison (only generated if ≥ 2 methods have data)
+    if args.pipeline == 3:
+        plot_pipeline3_methods_comparison(args.experiments_dir)

@@ -76,6 +76,19 @@ python main.py --pipeline 2 --sample singing
 python main.py --pipeline 3 --sample singing --method ahc
 ```
 
+### Chạy full pipeline với 3 method mới
+
+```bash
+# VBx — Bayesian HMM + PLDA (ResNet101 x-vectors)
+python main.py --pipeline all --method vbx
+
+# DOVER-Lap — dung hợp P1 + P2 hypothesis
+python main.py --pipeline all --method dover-lap
+
+# NME-SC — Auto-tuning Spectral Clustering
+python main.py --pipeline all --method nme-sc
+```
+
 ### Lệnh đầy đủ
 
 ```bash
@@ -119,7 +132,7 @@ python main.py --pipeline <PIPELINE> \
 
 | Tham số | Giá trị | Mặc định | Mô tả |
 |---------|---------|----------|-------|
-| `--method` | `ahc` / `cdgcn` | `ahc` | Thuật toán cleansing |
+| `--method` | `ahc` / `cdgcn` / `vbx` / `dover-lap` / `nme-sc` | `ahc` | Thuật toán cleansing |
 | `--device` | `cuda` / `cpu` | `cuda` | Thiết bị tính toán |
 | `--threshold` | `0.0` – `2.0` | `0.5` | Cosine distance threshold (AHC) — thấp = cụm chặt hơn |
 | `--merge_gap_sec` | float (s) | `0.5` | Khoảng cách tối đa để merge segment (AHC) |
@@ -128,6 +141,26 @@ python main.py --pipeline <PIPELINE> \
 | `--k` | int | `10` | Số láng giềng KNN (CDGCN) |
 | `--resolution` | float | `0.6` | Resolution của Leiden clustering (CDGCN) |
 | `--purity_threshold` | float | `0.8` | Ngưỡng purity để gộp community (CDGCN) |
+| `--vbx_loop_prob` | float | `0.9` | Xác suất không đổi speaker giữa 2 frame (VBx) |
+| `--vbx_fa` | float | `0.3` | Scale sufficient statistics — thấp = ít speaker hơn (VBx) |
+| `--vbx_fb` | float | `17.0` | Speaker regularization — cao = ít speaker hơn (VBx) |
+| `--vbx_max_speakers` | int | `10` | Số speaker tối đa (VBx) |
+| `--vbx_lda_dim` | int | `128` | Số chiều LDA sau PLDA transform (VBx) |
+| `--vbx_init_smoothing` | float | `5.0` | Độ mượt khởi tạo AHC → gamma (VBx) |
+| `--max_speakers` | int | `8` | Số speaker tối đa (NME-SC) |
+| `--max_rp_threshold` | float | `0.25` | Tỷ lệ láng giềng tối đa để scan (NME-SC) |
+
+**Mô tả các method:**
+
+| Method | Mô tả |
+|--------|-------|
+| `ahc` | ECAPA-TDNN embeddings + Agglomerative Hierarchical Clustering (loại outlier nội-cụm) |
+| `cdgcn` | ECAPA-TDNN embeddings + KNN graph + Leiden community detection |
+| `vbx` | Bayesian HMM Clustering + PLDA (ResNet101 x-vectors 256-dim, 16kHz) |
+| `dover-lap` | Dung hợp hypothesis từ P1 + P2 qua greedy label mapping + weighted voting |
+| `nme-sc` | Auto-tuning Spectral Clustering qua Normalized Maximum Eigengap (ECAPA embeddings) |
+
+> **Lưu ý `dover-lap`:** Không cần audio — cần cả output P1 (`data/diarization/<sample>.txt`) và P2. Khi dùng `main.py`, P1 path được inject tự động.
 
 ---
 
@@ -153,9 +186,13 @@ Kết quả được lưu vào `experiment/<YYYYMMDD>/` (tự động tạo fold
 | File | Nội dung |
 |------|----------|
 | `pipeline<N>_results.json` | Metrics tích lũy của pipeline N (tất cả sample) |
+| `pipeline3_<method>_results.json` | Metrics của Pipeline 3, method cụ thể |
 | `pipeline<N>_all_samples_table.png` | Bảng tổng hợp toàn bộ sample |
+| `pipeline3_<method>_all_samples_table.png` | Bảng tổng hợp P3 theo method |
 | `pipeline<N>_table_<sample>.png` | Bảng metrics chi tiết từng sample |
+| `pipeline3_<method>_table_<sample>.png` | Bảng metrics chi tiết P3 theo method |
 | `pipeline1_der.png` | Stacked bar: FA / MD / Confusion (P1) |
 | `pipeline2_prf.png` | Grouped bar: Purity / Coverage / F1 (P2) |
-| `pipeline3_purity.png` | Bar: DER before vs after cleansing (P3) |
+| `pipeline3_<method>_purity.png` | Bar: DER before vs after cleansing (P3) |
+| `pipeline3_methods_comparison.png` | Grouped bar: DER so sánh tất cả 5 method P3 (tự động khi có ≥ 2 methods) |
 | `pipeline_comparison_line.png` | Line chart: toàn bộ metrics qua P1→P2→P3 |

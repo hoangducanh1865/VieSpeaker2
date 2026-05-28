@@ -465,10 +465,10 @@ def run_cdgcn(args) -> str:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Pipeline 3: Speaker Diarization Cleansing (AHC or CDGCN)"
+        description="Pipeline 3: Speaker Diarization Cleansing"
     )
-    parser.add_argument("--method", choices=["ahc", "cdgcn"], required=True,
-                        help="Cleansing method")
+    parser.add_argument("--method", choices=["ahc", "cdgcn", "vbx", "dover-lap", "nme-sc"],
+                        required=True, help="Cleansing method")
     parser.add_argument("--diarization_path", required=True,
                         help="Input diarization TXT (from Pipeline 1 or 2)")
     parser.add_argument("--audio_path", required=True,
@@ -491,12 +491,45 @@ def main():
     parser.add_argument("--purity_threshold", type=float, default=0.8,
                         help="Community purity threshold (CDGCN)")
 
+    # VBx params
+    parser.add_argument("--vbx_loop_prob", type=float, default=0.9,
+                        help="VBx HMM self-loop probability")
+    parser.add_argument("--vbx_fa", type=float, default=0.3,
+                        help="VBx Fa parameter (scales sufficient statistics)")
+    parser.add_argument("--vbx_fb", type=float, default=17.0,
+                        help="VBx Fb parameter (speaker regularization)")
+    parser.add_argument("--vbx_max_speakers", type=int, default=10,
+                        help="VBx maximum number of speakers")
+    parser.add_argument("--vbx_lda_dim", type=int, default=128,
+                        help="VBx LDA dimensionality after PLDA transform")
+    parser.add_argument("--vbx_init_smoothing", type=float, default=5.0,
+                        help="VBx AHC init smoothing coefficient")
+
+    # NME-SC params
+    parser.add_argument("--max_speakers", type=int, default=8,
+                        help="NME-SC maximum number of speakers")
+    parser.add_argument("--max_rp_threshold", type=float, default=0.25,
+                        help="NME-SC maximum ratio of neighbors to consider")
+
+    # DOVER-Lap params
+    parser.add_argument("--diarization_path2", default=None,
+                        help="Second diarization file for DOVER-Lap (e.g. P1 output)")
+
     args = parser.parse_args()
 
     if args.method == "ahc":
         run_ahc(args)
-    else:
+    elif args.method == "cdgcn":
         run_cdgcn(args)
+    elif args.method == "vbx":
+        from vbx.run_vbx import run_vbx
+        run_vbx(args)
+    elif args.method == "dover-lap":
+        from dover_lap.run_dover_lap import run_dover_lap
+        run_dover_lap(args)
+    elif args.method == "nme-sc":
+        from nme_sc.run_nme_sc import run_nme_sc
+        run_nme_sc(args)
 
 
 if __name__ == "__main__":
