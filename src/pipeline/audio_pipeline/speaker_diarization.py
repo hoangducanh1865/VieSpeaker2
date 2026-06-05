@@ -82,13 +82,6 @@ class SpeakerDiarizer:
                 print("Pipeline loaded on CPU.")
 
     def diarize(self, audio_path: str, output_dir: str) -> str:
-        # Result cache: skip cloud / local inference if output already exists.
-        # Useful when re-running the orchestrator without wanting to redo P1.
-        output_path = os.path.join(output_dir, f"{Path(audio_path).stem}.txt")
-        if os.path.exists(output_path):
-            print(f"[Cache] Output already exists, skipping inference: {output_path}")
-            return output_path
-
         self.load_pipeline()
 
         if not os.path.exists(audio_path):
