@@ -237,10 +237,13 @@ src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_mod
 # File Claude plan
 claude_plan.md
 
-# Speaker-embedding weights for Pipeline 3 (large; not committed).
-# Populate with: python scripts/prepare_embeddings.py  (copies from stuff/),
-# or download from the project's Google Drive. See README.
-src/pipeline/clean_pipeline/embeddings/weights/
+# Speaker-embedding weights for Pipeline 3.
+# Small weights (<100MB: wespeaker34, campplus, configs) ARE committed.
+# Only the following are excluded:
+#   - wespeaker293 ONNX (>100MB GitHub limit) -> download from Drive (see README)
+#   - redimnet/ (the backend loads ReDimNet via torch.hub, not this local file)
+src/pipeline/clean_pipeline/embeddings/weights/wespeaker293/speaker-embedding.onnx
+src/pipeline/clean_pipeline/embeddings/weights/redimnet/
 
 # Experiment sweep intermediates (cached P1/P2 outputs, standardized videos,
 # face tracks) — regenerable and large. REPORT.md / results.json are kept.

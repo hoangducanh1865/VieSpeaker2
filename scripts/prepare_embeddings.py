@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Copy speaker-embedding weights out of the (gitignored) stuff/ folder into the
+"""Copy speaker-embedding weights out of the (local-only) stuff/ folder into the
 canonical, code-referenced location under src/.../embeddings/weights/.
 
-Why: `stuff/` is gitignored and never committed/pushed, but the embedding
-backends load from `embeddings/weights/<model>/...`. Run this once after cloning
-(or after transferring `stuff/` to the server) so the backends find their weights.
-
-The ECAPA (pretrain.model) and VBx (ResNet101 ONNX) weights already live in the
-committed tree and need no copying.
+This is a LOCAL convenience (stuff/ only exists on the dev machine). On the
+server you do NOT need it for most weights:
+  * wespeaker34 + campplus (+ all config.yaml) are committed in git -> arrive via
+    `git pull`.
+  * ECAPA (pretrain.model) and VBx (ResNet101 ONNX) are also committed.
+  * wespeaker293 ONNX (>100MB) is NOT in git -> download from Drive (see README).
+  * redimnet uses torch.hub (no local weight needed).
 
 Usage:
     python scripts/prepare_embeddings.py            # copy whatever is present
@@ -36,10 +37,8 @@ COPY_PLAN = {
         ("campplus/campplus_cn_common.bin", "campplus_cn_common.bin"),
         ("campplus/config.yaml", "config.yaml"),
     ],
-    "redimnet": [
-        ("redimnet/redimnet_b6_sphereface2/models/model_120.pt", "model_120.pt"),
-        ("redimnet/redimnet_b6_sphereface2/config.yaml", "config.yaml"),
-    ],
+    # NOTE: redimnet is intentionally omitted — the ReDimNet backend loads the
+    # model via torch.hub (IDRnD/ReDimNet), not from a local checkpoint.
 }
 
 

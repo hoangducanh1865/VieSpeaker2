@@ -31,26 +31,23 @@ conda activate VieSpeaker2
 
 ## 2. Tải model weights
 
-Một số weight quá lớn nên **không** nằm trong git:
+Phần lớn weight **đã nằm trong git** (về theo `git pull`), chỉ vài file >100MB phải tải thủ công từ Google Drive.
 
-**a) Weight Pipeline 2 (>100MB)** — tải từ Google Drive và đặt đúng path:
+**Có sẵn trong git — không cần làm gì:** ECAPA `pretrain.model`, VBx `ResNet101_16kHz`, SCRFD detector, và embedding **WeSpeaker34** + **CAM++** (`embeddings/weights/{wespeaker34,campplus}/`).
 
-| File | Đường dẫn |
+**Phải tải từ Google Drive (file >100MB)** và đặt đúng path:
+
+| File | Đường dẫn đặt vào |
 |------|-----------|
 | `glintr100.onnx` | `src/pipeline/audio_visual_pipeline/face_embedding_model/weights/glintr100.onnx` |
 | `loconet_ava_best.model` | `src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/pretrained_model/loconet_ava_best.model` |
+| `speaker-embedding.onnx` (WeSpeaker293, 109MB) | `src/pipeline/clean_pipeline/embeddings/weights/wespeaker293/speaker-embedding.onnx` |
 
 > 📁 [Download large model files](https://drive.google.com/drive/folders/1uETq0S36474-dRvErdTI3V2CUR-qS2aH?usp=sharing)
 
-**b) Weight speaker-embedding cho P3** — đặt vào `src/pipeline/clean_pipeline/embeddings/weights/`:
+**Không cần weight cục bộ:** `redimnet` được tải qua `torch.hub` (IDRnD/ReDimNet) khi chạy lần đầu (cần mạng).
 
-```bash
-# Nếu đã có folder stuff/ (chứa các model đã clone), copy tự động:
-python scripts/prepare_embeddings.py
-# Hoặc tải từ Google Drive và đặt vào các path mà script in ra.
-```
-
-Các weight sẵn trong git (không cần tải): ECAPA `pretrain.model`, VBx `ResNet101_16kHz`, SCRFD detector.
+> `scripts/prepare_embeddings.py` chỉ là tiện ích **trên máy dev** (copy weight từ `stuff/` ra). Trên server không cần dùng — các weight nhỏ về theo git, file lớn lấy từ Drive như bảng trên.
 
 ## 3. Tạo file `.env`
 
