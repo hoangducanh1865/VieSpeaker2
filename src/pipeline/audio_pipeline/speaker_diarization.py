@@ -19,7 +19,7 @@ def _load_dotenv():
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     k, _, v = line.partition("=")
-                    os.environ.setdefault(k.strip(), v.strip())
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
@@ -57,23 +57,10 @@ class SpeakerDiarizer:
         self.min_segment_duration = min_segment_duration
         self.max_gap_threshold = max_gap_threshold
 
-    def _from_pretrained(self, **extra_kwargs):
-        """Try token= first (new API), fall back to use_auth_token= (old API)."""
-        try:
-            return Pipeline.from_pretrained(self.model_name, token=self.token, **extra_kwargs)
-        except TypeError:
-            return Pipeline.from_pretrained(self.model_name, use_auth_token=self.token, **extra_kwargs)
-
     def load_pipeline(self):
         if self.pipeline is None:
-            # Try offline cache first — skips the internet HEAD check entirely.
-            # Falls back to online download only when cache is absent.
-            try:
-                print("Loading speaker diarization pipeline (offline cache)...")
-                self.pipeline = self._from_pretrained(local_files_only=True)
-            except Exception:
-                print("Cache miss — downloading pipeline from HuggingFace...")
-                self.pipeline = self._from_pretrained()
+            print("Loading speaker diarization pipeline...")
+            self.pipeline = Pipeline.from_pretrained(self.model_name, token=self.token)
 
             if torch.cuda.is_available():
                 self.pipeline.to(torch.device("cuda"))
@@ -193,13 +180,13 @@ def main():
     parser.add_argument("--max_gap_threshold", type=float, default=0.5)
     args = parser.parse_args()
 
-    # Token selection: precision-* uses PYANNOTE_API_KEY (pyannoteAI cloud key),
+    # Token selection: precision-* uses PYANNOTEAI_API_KEY (pyannoteAI cloud key),
     # all other models use HUGGINGFACE_ACCESS_TOKEN.
     if "precision" in args.model.lower():
-        api_key = os.getenv("PYANNOTE_API_KEY") or os.getenv("HUGGINGFACE_ACCESS_TOKEN")
+        api_key = os.getenv("PYANNOTEAI_API_KEY")
         if not api_key:
             raise RuntimeError(
-                "Missing PYANNOTE_API_KEY in environment or .env file. "
+                "Missing PYANNOTEAI_API_KEY in environment or .env file. "
                 "Create an API key at https://dashboard.pyannote.ai"
             )
         print(f"[P1] Using pyannoteAI cloud model: {args.model}")
