@@ -33,6 +33,7 @@ EXPERIMENTS_DIR = os.path.join(_ROOT, "experiment")
 P1_SCRIPT = os.path.join(_SRC, "pipeline", "audio_pipeline", "speaker_diarization.py")
 P2_SCRIPT = os.path.join(_SRC, "pipeline", "audio_visual_pipeline", "supplement_pipeline.py")
 P3_SCRIPT = os.path.join(_SRC, "pipeline", "clean_pipeline", "clean.py")
+FUSION_SCRIPT = os.path.join(_SRC, "pipeline", "fusion_pipeline", "fuse.py")
 EVAL_SCRIPT = os.path.join(_SRC, "evaluation", "evaluation.py")
 
 
@@ -47,7 +48,8 @@ def _run(cmd: list, label: str) -> bool:
     return result.returncode == 0
 
 
-def run_pipeline_1(sample: str, output_dir: str, model: str, min_seg: float, max_gap: float) -> str:
+def run_pipeline_1(sample: str, output_dir: str, model: str, min_seg: float, max_gap: float,
+                   overlap_policy: str = "keep") -> str:
     audio_path = os.path.join(AUDIO_DIR, f"{sample}.wav")
     os.makedirs(output_dir, exist_ok=True)
     ok = _run(
@@ -58,6 +60,7 @@ def run_pipeline_1(sample: str, output_dir: str, model: str, min_seg: float, max
             "--model", model,
             "--min_segment_duration", str(min_seg),
             "--max_gap_threshold", str(max_gap),
+            "--overlap_policy", overlap_policy,
         ],
         f"Pipeline 1 — Speaker Diarization: {sample}",
     )
@@ -119,7 +122,8 @@ def run_pipeline_3(
     return output_path
 
 
-def run_evaluation(pipeline_num: int, sample: str, hyp_path: str, ref_path: str, method: str = ""):
+def run_evaluation(pipeline_num, sample: str, hyp_path: str, ref_path: str, method: str = "",
+                   collar: float = 0.0):
     if not os.path.exists(hyp_path):
         print(f"[EVAL] Skipping — hypothesis file missing: {hyp_path}")
         return
@@ -131,10 +135,28 @@ def run_evaluation(pipeline_num: int, sample: str, hyp_path: str, ref_path: str,
         "--ref_path", ref_path,
         "--sample_key", sample,
         "--experiments_dir", EXPERIMENTS_DIR,
+        "--collar", str(collar),
     ]
-    if pipeline_num == 3 and method:
+    if str(pipeline_num) == "3" and method:
         cmd += ["--method", method]
     _run(cmd, f"Evaluation — Pipeline {pipeline_num}: {sample}")
+
+
+def run_fusion_pipeline(sample: str, input_paths: list, output_dir: str) -> str:
+    sample_out = os.path.join(output_dir, sample)
+    os.makedirs(sample_out, exist_ok=True)
+    present = [p for p in input_paths if p and os.path.exists(p)]
+    _run(
+        [sys.executable, FUSION_SCRIPT, "--inputs", *present,
+         "--output_dir", sample_out, "--file_id", sample],
+        f"Fusion (DOVER-Lap): {sample}",
+    )
+    output_path = os.path.join(sample_out, "fused_diarization.txt")
+    if os.path.exists(output_path):
+        print(f"[FUSION] Output: {output_path}")
+    else:
+        print(f"[FUSION] Expected output not found: {output_path}")
+    return output_path
 
 
 def _p3_extra_args(args) -> list:
@@ -167,6 +189,8 @@ def _p3_extra_args(args) -> list:
             "--max_rp_threshold", str(args.max_rp_threshold),
         ]
     # dover-lap: diarization_path2 is injected in run_pipeline_3
+    # embedding backend applies to ahc/cdgcn/nme-sc (ignored by vbx/dover-lap)
+    extra += ["--embedding", args.embedding]
     extra += ["--device", args.device]
     return extra
 
@@ -174,8 +198,8 @@ def _p3_extra_args(args) -> list:
 def main():
     parser = argparse.ArgumentParser(description="VieSpeaker2 Orchestrator")
     parser.add_argument(
-        "--pipeline", choices=["1", "2", "3", "all"], required=True,
-        help="Which pipeline(s) to run",
+        "--pipeline", choices=["1", "2", "3", "all", "fusion"], required=True,
+        help="Which pipeline(s) to run. 'fusion' = DOVER-Lap fuse of P1 + P2.",
     )
     parser.add_argument(
         "--sample", default=None,
@@ -186,11 +210,18 @@ def main():
                         help="Pipeline 1 model. Default: precision-2 (cloud). Alt: pyannote/speaker-diarization-3.1 (local).")
     parser.add_argument("--min_segment_duration", type=float, default=0.5)
     parser.add_argument("--max_gap_threshold", type=float, default=0.5)
+    parser.add_argument("--overlap_policy", choices=["keep", "drop", "dominant"], default="keep",
+                        help="P1 overlap handling (default: keep — never delete overlap speech).")
     # Pipeline 2 options
     parser.add_argument("--asd_model", choices=["lr_asd", "loconet"], default="lr_asd")
     # Pipeline 3 options
     parser.add_argument("--method", choices=["ahc", "cdgcn", "vbx", "dover-lap", "nme-sc"],
                         default="ahc")
+    parser.add_argument("--embedding", default="ecapa",
+                        choices=["ecapa", "wespeaker34", "wespeaker293", "campplus", "redimnet"],
+                        help="Speaker-embedding backend for ahc/cdgcn/nme-sc P3 methods.")
+    parser.add_argument("--collar", type=float, default=0.0,
+                        help="Primary DER collar (s). DER at collar=0.25 is always reported too.")
     parser.add_argument("--device", default="cuda")
     # AHC params
     parser.add_argument("--merge_gap_sec", type=float, default=0.5)
@@ -220,6 +251,7 @@ def main():
     p1_out = os.path.join(DATA_DIR, "diarization")
     p2_out = os.path.join(DATA_DIR, "audio_visual")
     p3_out = os.path.join(DATA_DIR, "clean")
+    fusion_out = os.path.join(DATA_DIR, "fusion")
 
     p3_extra = _p3_extra_args(args)
 
@@ -233,9 +265,9 @@ def main():
         if args.pipeline == "1":
             hyp = run_pipeline_1(
                 sample, p1_out, args.p1_model,
-                args.min_segment_duration, args.max_gap_threshold,
+                args.min_segment_duration, args.max_gap_threshold, args.overlap_policy,
             )
-            run_evaluation(1, sample, hyp, ref_path)
+            run_evaluation(1, sample, hyp, ref_path, collar=args.collar)
 
         elif args.pipeline == "2":
             sd_path = os.path.join(p1_out, f"{sample}.txt")
@@ -244,7 +276,7 @@ def main():
                 print("        Run --pipeline 1 first.")
                 continue
             hyp = run_pipeline_2(sample, sd_path, args.asd_model, p2_out)
-            run_evaluation(2, sample, hyp, ref_path)
+            run_evaluation(2, sample, hyp, ref_path, collar=args.collar)
 
         elif args.pipeline == "3":
             p2_hyp = os.path.join(p2_out, sample, "supplemented_diarization.txt")
@@ -253,20 +285,36 @@ def main():
                 print("        Run --pipeline 2 first.")
                 continue
             hyp = run_pipeline_3(sample, p2_hyp, args.method, p3_out, p3_extra)
-            run_evaluation(3, sample, hyp, ref_path, method=args.method)
+            run_evaluation(3, sample, hyp, ref_path, method=args.method, collar=args.collar)
 
         elif args.pipeline == "all":
             hyp1 = run_pipeline_1(
                 sample, p1_out, args.p1_model,
-                args.min_segment_duration, args.max_gap_threshold,
+                args.min_segment_duration, args.max_gap_threshold, args.overlap_policy,
             )
-            run_evaluation(1, sample, hyp1, ref_path)
+            run_evaluation(1, sample, hyp1, ref_path, collar=args.collar)
 
             hyp2 = run_pipeline_2(sample, hyp1, args.asd_model, p2_out)
-            run_evaluation(2, sample, hyp2, ref_path)
+            run_evaluation(2, sample, hyp2, ref_path, collar=args.collar)
 
             hyp3 = run_pipeline_3(sample, hyp2, args.method, p3_out, p3_extra)
-            run_evaluation(3, sample, hyp3, ref_path, method=args.method)
+            run_evaluation(3, sample, hyp3, ref_path, method=args.method, collar=args.collar)
+
+        elif args.pipeline == "fusion":
+            # Fuse P1 (audio) + P2 (audio-visual). Reuse cached outputs if present.
+            sd_path = os.path.join(p1_out, f"{sample}.txt")
+            if not os.path.exists(sd_path):
+                sd_path = run_pipeline_1(
+                    sample, p1_out, args.p1_model,
+                    args.min_segment_duration, args.max_gap_threshold, args.overlap_policy,
+                )
+                run_evaluation(1, sample, sd_path, ref_path, collar=args.collar)
+            p2_hyp = os.path.join(p2_out, sample, "supplemented_diarization.txt")
+            if not os.path.exists(p2_hyp):
+                p2_hyp = run_pipeline_2(sample, sd_path, args.asd_model, p2_out)
+                run_evaluation(2, sample, p2_hyp, ref_path, collar=args.collar)
+            fused = run_fusion_pipeline(sample, [sd_path, p2_hyp], fusion_out)
+            run_evaluation("fusion", sample, fused, ref_path, collar=args.collar)
 
     print("\nDone.")
 

@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Copy speaker-embedding weights out of the (gitignored) stuff/ folder into the
+canonical, code-referenced location under src/.../embeddings/weights/.
+
+Why: `stuff/` is gitignored and never committed/pushed, but the embedding
+backends load from `embeddings/weights/<model>/...`. Run this once after cloning
+(or after transferring `stuff/` to the server) so the backends find their weights.
+
+The ECAPA (pretrain.model) and VBx (ResNet101 ONNX) weights already live in the
+committed tree and need no copying.
+
+Usage:
+    python scripts/prepare_embeddings.py            # copy whatever is present
+    python scripts/prepare_embeddings.py --list     # just report status
+"""
+
+import argparse
+import os
+import shutil
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SRC_STUFF = os.path.join(_ROOT, "stuff", "reference", "speaker_embedding_model")
+_DST = os.path.join(_ROOT, "src", "pipeline", "clean_pipeline", "embeddings", "weights")
+
+# (destination subdir, [ (src_relpath, dst_filename), ... ])
+COPY_PLAN = {
+    "wespeaker34": [
+        ("pyannote/wespeaker-voxceleb-resnet34-LM/pytorch_model.bin", "pytorch_model.bin"),
+        ("pyannote/wespeaker-voxceleb-resnet34-LM/config.yaml", "config.yaml"),
+    ],
+    "wespeaker293": [
+        ("wespeaker-voxceleb-resnet293-LM/speaker-embedding.onnx", "speaker-embedding.onnx"),
+        ("wespeaker-voxceleb-resnet293-LM/config.yaml", "config.yaml"),
+    ],
+    "campplus": [
+        ("campplus/campplus_cn_common.bin", "campplus_cn_common.bin"),
+        ("campplus/config.yaml", "config.yaml"),
+    ],
+    "redimnet": [
+        ("redimnet/redimnet_b6_sphereface2/models/model_120.pt", "model_120.pt"),
+        ("redimnet/redimnet_b6_sphereface2/config.yaml", "config.yaml"),
+    ],
+}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--list", action="store_true", help="Only report status, copy nothing")
+    args = ap.parse_args()
+
+    print(f"Source : {_SRC_STUFF}")
+    print(f"Dest   : {_DST}\n")
+    if not os.path.isdir(_SRC_STUFF) and not args.list:
+        print("[WARN] stuff/ source folder not found. If weights are already in place "
+              "(or downloaded from Drive), backends will still work.")
+
+    copied = skipped = missing = 0
+    for subdir, files in COPY_PLAN.items():
+        dst_dir = os.path.join(_DST, subdir)
+        os.makedirs(dst_dir, exist_ok=True)
+        for src_rel, dst_name in files:
+            src = os.path.join(_SRC_STUFF, src_rel)
+            dst = os.path.join(dst_dir, dst_name)
+            if os.path.exists(dst):
+                print(f"  [have] {subdir}/{dst_name}")
+                skipped += 1
+                continue
+            if not os.path.exists(src):
+                print(f"  [MISS] {subdir}/{dst_name}  (source: {src_rel})")
+                missing += 1
+                continue
+            if args.list:
+                print(f"  [todo] {subdir}/{dst_name}")
+                continue
+            shutil.copy2(src, dst)
+            print(f"  [copy] {subdir}/{dst_name}")
+            copied += 1
+
+    print(f"\nDone. copied={copied} already_present={skipped} missing={missing}")
+    if missing:
+        print("Missing files: download from the project's Google Drive and place them "
+              "under the Dest paths above, or ensure stuff/ is present.")
+
+
+if __name__ == "__main__":
+    main()

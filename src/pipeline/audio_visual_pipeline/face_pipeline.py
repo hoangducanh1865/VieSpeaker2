@@ -295,8 +295,14 @@ class ASVDataPipeline:
                 
         print(f"Phase 2 Complete. Extracted embeddings for {len(self.track_embeddings)} tracks.")
 
-    def phase_3_cluster_identities(self, distance_threshold=0.6):
-        """Clusters track embeddings to group same speakers together."""
+    def phase_3_cluster_identities(self, distance_threshold=0.6, merge_threshold=0.0):
+        """Clusters track embeddings to group same speakers together.
+
+        merge_threshold > 0 enables a second-pass "re-ID" merge: face clusters
+        whose centroids are within `merge_threshold` cosine distance are merged.
+        Scene cuts reset the tracker and mint fresh track IDs, so one person often
+        ends up split across several clusters; this pass re-unifies them.
+        """
         print("\n--- Phase 3: Agglomerative Hierarchical Clustering ---")
         if len(self.track_embeddings) == 0:
             print("No embeddings to cluster.")
@@ -306,7 +312,7 @@ class ASVDataPipeline:
         features = np.array(list(self.track_embeddings.values()))
         features = features.reshape(features.shape[0], -1)
 
-        
+
         # If there's only 1 track, clustering will fail, so handle edge case
         if len(features) == 1:
             labels = [0]
@@ -321,17 +327,51 @@ class ASVDataPipeline:
                 distance_threshold=distance_threshold,
             )
             labels = clusterer.fit_predict(distance_matrix)
-        
+
+        labels = list(labels)
+        if merge_threshold and merge_threshold > 0 and len(set(labels)) > 1:
+            labels = self._merge_close_clusters(features, labels, merge_threshold)
+
         # Group track IDs by their clustered identity
         clustered_identities = defaultdict(list)
         for track_id, label in zip(track_ids, labels):
             clustered_identities[label].append(track_id)
-            
+
         print(f"Found {len(clustered_identities)} unique speaker identities.")
         for cluster_id, tracks in clustered_identities.items():
             print(f"  Speaker {cluster_id}: Track IDs {tracks}")
-            
+
         return clustered_identities
+
+    @staticmethod
+    def _merge_close_clusters(features, labels, merge_threshold):
+        """Greedily merge clusters whose (normalised) centroids are within
+        `merge_threshold` cosine distance. Returns relabelled, compacted labels."""
+        labels = list(labels)
+        for _ in range(len(set(labels))):  # iterate until no merge happens
+            uniq = sorted(set(labels))
+            centroids = {}
+            for c in uniq:
+                idx = [i for i, l in enumerate(labels) if l == c]
+                v = features[idx].mean(axis=0)
+                n = np.linalg.norm(v)
+                centroids[c] = v / n if n > 1e-8 else v
+            merged = False
+            for a in range(len(uniq)):
+                for b in range(a + 1, len(uniq)):
+                    ca, cb = uniq[a], uniq[b]
+                    dist = 1.0 - float(np.dot(centroids[ca], centroids[cb]))
+                    if dist < merge_threshold:
+                        labels = [ca if l == cb else l for l in labels]
+                        merged = True
+                        break
+                if merged:
+                    break
+            if not merged:
+                break
+        # compact label ids to 0..K-1
+        remap = {c: i for i, c in enumerate(sorted(set(labels)))}
+        return [remap[l] for l in labels]
 
     def _filter_overlapping_segments(self, segments, min_segment_sec=0.2):
         if len(segments) == 0:

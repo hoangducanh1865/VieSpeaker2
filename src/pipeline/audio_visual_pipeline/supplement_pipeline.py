@@ -154,6 +154,32 @@ def map_audio_to_video(audio_segs, video_segs, threshold, output_report, audio_n
 	return a_to_v, cost, audio_speakers, video_speakers
 
 
+def map_video_to_audio_soft(audio_segs, video_segs, min_overlap_sec=0.5):
+	"""Soft many-to-many mapping: assign each VIDEO (face) speaker to the AUDIO
+	speaker it overlaps with the most.
+
+	Face clustering often over-segments one person into several face clusters; a
+	1-to-1 Hungarian assignment cannot represent that. Mapping video→audio by
+	argmax overlap lets *several* face clusters collapse onto the same audio
+	speaker, which is what we actually need for relabel decisions.
+
+	Returns: dict {video_speaker: audio_speaker} (only confident links).
+	"""
+	audio_speakers = sorted({s["speaker"] for s in audio_segs})
+	video_speakers = sorted({s["speaker"] for s in video_segs})
+	cost = build_overlap_matrix(audio_segs, video_segs, audio_speakers, video_speakers)
+
+	v_to_a = {}
+	if cost.size == 0:
+		return v_to_a
+	for j, v_spk in enumerate(video_speakers):
+		col = cost[:, j]
+		best_i = int(np.argmax(col))
+		if float(col[best_i]) >= min_overlap_sec:
+			v_to_a[v_spk] = audio_speakers[best_i]
+	return v_to_a
+
+
 def compute_video_overlap_in_window(video_segs, start, end):
 	"""Return per-video-speaker overlap seconds with [start, end]."""
 	out = defaultdict(float)
@@ -167,20 +193,25 @@ def compute_video_overlap_in_window(video_segs, start, end):
 def apply_sd_primary_anomaly_supplement(
 	audio_segs,
 	video_segs,
-	a_to_v_map,
-	pollution_min_sec=0.5,
-	anomaly_margin_sec=0.3,
+	v_to_a,
 	relabel_main_max_sec=0.25,
 	relabel_other_min_sec=0.8,
 	relabel_dom_ratio=0.65,
 ):
+	"""SD-first supplement strategy — **label refinement only, never deletion**.
+
+	The audio diarization (P1) is the authority on *where* speech is; the visual
+	stream is only used to *correct the speaker label* of a segment, never to
+	remove it. Every audio segment is emitted exactly once:
+	  - RELABEL : strong, consistent visual evidence that a *different* audio
+	              speaker (via the soft video→audio map) dominates this segment
+	              while this speaker's own faces are essentially inactive.
+	  - KEEP    : everything else (default).
+
+	`v_to_a` maps each video (face) cluster to the audio speaker it overlaps most
+	(see map_video_to_audio_soft), so several face clusters can back one audio
+	speaker. Overlaps are aggregated per *audio* speaker, not per face cluster.
 	"""
-	SD-first supplement strategy:
-	- KEEP by default.
-	- RELABEL only if visual evidence is strongly dominant for another mapped speaker.
-	- DISCARD if strong contradiction exists but relabel confidence is insufficient.
-	"""
-	v_to_a = {v: a for a, v in a_to_v_map.items()}
 	final_segments = []
 	decisions = []
 
@@ -192,59 +223,37 @@ def apply_sd_primary_anomaly_supplement(
 		if duration <= 0:
 			continue
 
-		v_main = a_to_v_map.get(a_spk)
 		overlap_map = compute_video_overlap_in_window(video_segs, start, end)
 
-		if not overlap_map or v_main is None:
+		# Aggregate face overlaps by the audio speaker each face maps to.
+		own_overlap = 0.0
+		other_by_audio = defaultdict(float)
+		for v_spk, t in overlap_map.items():
+			mapped = v_to_a.get(v_spk)
+			if mapped is None:
+				continue
+			if mapped == a_spk:
+				own_overlap += t
+			else:
+				other_by_audio[mapped] += t
+
+		if not other_by_audio:
 			final_segments.append(dict(seg))
 			decisions.append({
-				"start": start,
-				"end": end,
-				"sd_speaker": a_spk,
-				"decision": "KEEP",
-				"reason": "No reliable SD<->face mapping for this speaker or no visual overlap."
+				"start": start, "end": end, "sd_speaker": a_spk, "decision": "KEEP",
+				"reason": "No competing mapped face speaker inside this SD segment.",
 			})
 			continue
 
-		main_overlap = float(overlap_map.get(v_main, 0.0))
-		other_items = [(v, t) for v, t in overlap_map.items() if v != v_main]
-		if not other_items:
-			final_segments.append(dict(seg))
-			decisions.append({
-				"start": start,
-				"end": end,
-				"sd_speaker": a_spk,
-				"decision": "KEEP",
-				"reason": "No competing visual speaker inside this SD segment."
-			})
-			continue
+		best_other_audio, best_other_overlap = max(other_by_audio.items(), key=lambda x: x[1])
 
-		best_other_v, best_other_overlap = max(other_items, key=lambda x: x[1])
-		best_other_audio = v_to_a.get(best_other_v)
-
-		# Candidate anomaly only when another speaker is present long enough.
-		is_polluted_candidate = best_other_overlap >= pollution_min_sec
-		is_strong_anomaly = is_polluted_candidate and (best_other_overlap - main_overlap) >= anomaly_margin_sec
-
-		if not is_strong_anomaly:
-			final_segments.append(dict(seg))
-			decisions.append({
-				"start": start,
-				"end": end,
-				"sd_speaker": a_spk,
-				"decision": "KEEP",
-				"reason": (
-					f"Competing visual overlap exists ({best_other_overlap:.2f}s) but not strong enough "
-					f"against mapped face ({main_overlap:.2f}s)."
-				)
-			})
-			continue
-
-		# Strong relabel condition: mapped face is mostly inactive and another mapped face is dominant.
+		# Relabel only when the evidence is strong AND consistent:
+		#  - this speaker's own faces are essentially inactive in the window,
+		#  - another audio speaker's faces dominate both in absolute time and
+		#    as a fraction of the segment.
 		relabel_confident = (
-			best_other_audio is not None
-			and best_other_audio != a_spk
-			and main_overlap <= relabel_main_max_sec
+			best_other_audio != a_spk
+			and own_overlap <= relabel_main_max_sec
 			and best_other_overlap >= relabel_other_min_sec
 			and (best_other_overlap / duration) >= relabel_dom_ratio
 		)
@@ -252,26 +261,21 @@ def apply_sd_primary_anomaly_supplement(
 		if relabel_confident:
 			final_segments.append({"start": start, "end": end, "speaker": best_other_audio})
 			decisions.append({
-				"start": start,
-				"end": end,
-				"sd_speaker": a_spk,
-				"decision": "RELABEL",
+				"start": start, "end": end, "sd_speaker": a_spk, "decision": "RELABEL",
 				"new_speaker": best_other_audio,
 				"reason": (
-					f"Mapped face {v_main} mostly inactive ({main_overlap:.2f}s) while {best_other_v} "
-					f"dominates ({best_other_overlap:.2f}s / {duration:.2f}s)."
-				)
+					f"Own faces inactive ({own_overlap:.2f}s) while {best_other_audio} faces "
+					f"dominate ({best_other_overlap:.2f}s / {duration:.2f}s)."
+				),
 			})
 		else:
+			final_segments.append(dict(seg))
 			decisions.append({
-				"start": start,
-				"end": end,
-				"sd_speaker": a_spk,
-				"decision": "DISCARD",
+				"start": start, "end": end, "sd_speaker": a_spk, "decision": "KEEP",
 				"reason": (
-					f"Segment considered polluted/ambiguous: other speaker overlap {best_other_overlap:.2f}s "
-					f"vs mapped {main_overlap:.2f}s."
-				)
+					f"Competing visual overlap ({best_other_overlap:.2f}s) not strong/consistent "
+					f"enough vs own ({own_overlap:.2f}s) — keeping audio label (never deleting speech)."
+				),
 			})
 
 	return final_segments, decisions
@@ -294,14 +298,12 @@ def merge_contiguous_segments(segments, gap_tolerance=0.1):
 def write_anomaly_report(report_path, decisions):
 	kept = sum(1 for d in decisions if d["decision"] == "KEEP")
 	relabeled = sum(1 for d in decisions if d["decision"] == "RELABEL")
-	discarded = sum(1 for d in decisions if d["decision"] == "DISCARD")
 
 	with open(report_path, "w") as f:
-		f.write("=== SD-FIRST ANOMALY SUPPLEMENT REPORT ===\n")
+		f.write("=== SD-FIRST SUPPLEMENT REPORT (relabel-only, no deletion) ===\n")
 		f.write(f"Total SD segments evaluated: {len(decisions)}\n")
 		f.write(f"KEEP: {kept}\n")
 		f.write(f"RELABEL: {relabeled}\n")
-		f.write(f"DISCARD: {discarded}\n")
 		f.write("==========================================\n\n")
 
 		for d in decisions:
@@ -596,7 +598,10 @@ def run_face_pipeline_for_video_diarization(args, skip_phase_0_2=False, tracks_d
 		pipeline.phase_1_track_and_crop(standardized_video) # Phase 1: Track + crop khuôn mặt
 		pipeline.phase_2_extract_uniform_embeddings(num_samples=args.embedding_samples) # Phase 2: Trích xuất face embeddings
 	
-	clusters = pipeline.phase_3_cluster_identities(distance_threshold=args.cluster_threshold) # Phase 3: Cluster identity (ai là ai)
+	clusters = pipeline.phase_3_cluster_identities(
+		distance_threshold=args.cluster_threshold,
+		merge_threshold=getattr(args, "cluster_merge_threshold", 0.0),
+	) # Phase 3: Cluster identity (ai là ai) + optional re-ID merge across scene cuts
 
 	video_diarization = args.video_diarization_output 
 	if video_diarization is None:
@@ -662,8 +667,12 @@ def main():
 	parser.add_argument("--scene_cut_threshold", type=float, default=ORIGINAL_FACE_SETUP["scene_cut_threshold"])
 	parser.add_argument("--scene_cut_debounce", type=int, default=ORIGINAL_FACE_SETUP["scene_cut_debounce"])
 	parser.add_argument("--cluster_threshold", type=float, default=0.7)
+	parser.add_argument("--cluster_merge_threshold", type=float, default=0.0,
+					help="If >0, merge face clusters whose centroids are within this cosine "
+						 "distance (re-ID across scene cuts). 0 disables (default).")
 	parser.add_argument("--asd_threshold", type=float, default=0.0,
-					help="Confidence threshold for LR-ASD")
+					help="Confidence threshold for LR-ASD speaking decision (LR-ASD operating "
+						 "point is 0.0; raise for higher visual precision).")
 	parser.add_argument("--min_segment_sec", type=float, default=0.2,
 					help="Minimum segment duration")
 	parser.add_argument("--allow_overlap", dest="allow_overlap", action="store_true", default=True,
@@ -770,9 +779,9 @@ def main():
 	print("\n=== STEP 2: Build SD<->Face mapping with overlap matrix ===")
 	sd_segments = parse_diarization_file(args.sd_diarization)
 	video_segments = parse_diarization_file(video_diarization)
- 
-	# Map Speaker Diarization bằng audio với face pipeline
-	a_to_v_map, _, _, _ = map_audio_to_video(
+
+	# Report uses the (legacy) Hungarian 1-1 view for human inspection...
+	map_audio_to_video(
 		audio_segs=sd_segments,
 		video_segs=video_segments,
 		threshold=args.mapping_threshold,
@@ -780,15 +789,20 @@ def main():
 		audio_name=os.path.basename(args.sd_diarization),
 		video_name=os.path.basename(video_diarization),
 	)
+	# ...but the supplement logic uses the soft many-to-many video→audio map.
+	v_to_a = map_video_to_audio_soft(
+		audio_segs=sd_segments,
+		video_segs=video_segments,
+		min_overlap_sec=args.mapping_threshold,
+	)
 	print(f"Mapping report written to: {args.mapping_report}")
+	print(f"Soft video→audio map ({len(v_to_a)} links): {v_to_a}")
 
-	print("\n=== STEP 3: SD-primary anomaly supplement ===")
+	print("\n=== STEP 3: SD-primary supplement (relabel-only, never deletes speech) ===")
 	supplemented, decisions = apply_sd_primary_anomaly_supplement(
 		audio_segs=sd_segments,
 		video_segs=video_segments,
-		a_to_v_map=a_to_v_map,
-		pollution_min_sec=args.pollution_min_sec,
-		anomaly_margin_sec=args.anomaly_margin_sec,
+		v_to_a=v_to_a,
 		relabel_main_max_sec=args.relabel_main_max_sec,
 		relabel_other_min_sec=args.relabel_other_min_sec,
 		relabel_dom_ratio=args.relabel_dom_ratio,

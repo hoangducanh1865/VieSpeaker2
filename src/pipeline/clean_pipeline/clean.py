@@ -49,6 +49,12 @@ _MODELS_DIR = os.path.join(_HERE, "models")
 _ECAPA_ROOT = os.path.join(_MODELS_DIR, "ecapa_tdnn")
 _ECAPA_PATH = os.path.join(_ECAPA_ROOT, "exps", "pretrain.model")
 
+# Make `import embeddings.*` work whether clean.py is run as a script or imported.
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+from embeddings.registry import get_embedder  # noqa: E402
+
 SAMPLE_RATE = 16000
 
 
@@ -220,21 +226,27 @@ def run_ahc(args) -> str:
 
     print("\n[AHC] Step 1: Loading diarization")
     original_segs = parse_diarization_dict(args.diarization_path)
-    non_overlap = remove_overlapping_segments(original_segs)
-    merged = merge_same_speaker_segments(non_overlap, max_gap_sec=args.merge_gap_sec)
-    print(f"  original={len(original_segs)}, after overlap+merge={len(merged)}")
+    # By default DO NOT delete overlap regions (deleting them is a guaranteed
+    # missed-detection floor). Only drop overlap when explicitly requested.
+    if getattr(args, "drop_overlap", False):
+        base_segs = remove_overlapping_segments(original_segs)
+    else:
+        base_segs = original_segs
+    merged = merge_same_speaker_segments(base_segs, max_gap_sec=args.merge_gap_sec)
+    print(f"  original={len(original_segs)}, after merge={len(merged)} (drop_overlap={getattr(args, 'drop_overlap', False)})")
 
     if not merged:
         write_diarization(output_path, [])
         return output_path
 
-    print("\n[AHC] Step 2: Loading ECAPA-TDNN (shared pretrain.model)")
-    ecapa = _load_ecapa_model()
+    embedding_name = getattr(args, "embedding", "ecapa")
+    print(f"\n[AHC] Step 2: Loading speaker-embedding backend '{embedding_name}'")
+    embedder = get_embedder(embedding_name, device=getattr(args, "device", "cuda"))
 
     print("\n[AHC] Step 3: Extracting embeddings")
     enriched = []
     for seg in merged:
-        emb = _extract_ecapa_embedding(ecapa, args.audio_path, seg["start"], seg["end"])
+        emb = embedder.extract(args.audio_path, seg["start"], seg["end"])
         if emb is None:
             continue
         item = dict(seg)
@@ -246,12 +258,12 @@ def run_ahc(args) -> str:
 
     print(f"  trusted={len(trusted)}, untrusted={len(untrusted)}")
 
-    print("\n[AHC] Step 4: Per-speaker intra-cluster filtering")
+    print("\n[AHC] Step 4: Per-speaker intra-cluster outlier detection")
     by_speaker: dict = defaultdict(list)
     for item in trusted:
         by_speaker[item["speaker"]].append(item)
 
-    kept, removed = [], []
+    kept, outliers = [], []
     for speaker, items in by_speaker.items():
         if len(items) < args.min_cluster_size:
             kept.extend(items)
@@ -259,9 +271,11 @@ def run_ahc(args) -> str:
         embs = [x["embedding"] for x in items]
         main_idx = _select_main_cluster_ahc(embs, threshold=args.threshold)
         for i, item in enumerate(items):
-            (kept if i in main_idx else removed).append(item)
+            # Outliers are NOT deleted — they are queued for reassignment so we
+            # never drop detected speech (deleting it only inflates missed detection).
+            (kept if i in main_idx else outliers).append(item)
 
-    # Build centroids from kept segments
+    # Build centroids from kept (high-confidence) segments
     speaker_centroids: dict = {}
     by_kept: dict = defaultdict(list)
     for item in kept:
@@ -269,9 +283,10 @@ def run_ahc(args) -> str:
     for spk, embs in by_kept.items():
         speaker_centroids[spk] = _normalize(np.mean(np.stack(embs), axis=0))
 
-    print("\n[AHC] Step 5: Reassigning short segments")
-    for item in untrusted:
+    print(f"\n[AHC] Step 5: Reassigning {len(outliers)} outliers + {len(untrusted)} short segments (no deletion)")
+    for item in outliers + untrusted:
         if not speaker_centroids:
+            # No reliable centroid to compare against — keep the original label.
             kept.append(item)
             continue
         best_spk = max(
@@ -301,12 +316,16 @@ def _load_ecapa_model():
         sys.path.insert(0, _ECAPA_ROOT)
     from model import ECAPA_TDNN  # type: ignore
     model = ECAPA_TDNN(C=1024)
-    try:
-        state = torch.load(_ECAPA_PATH, map_location="cpu")
-        model.load_state_dict(state, strict=False)
-        print(f"  Loaded ECAPA-TDNN from {_ECAPA_PATH}")
-    except Exception as e:
-        print(f"  Warning: failed to load checkpoint ({e}); using random init")
+    if not os.path.exists(_ECAPA_PATH):
+        raise FileNotFoundError(
+            f"ECAPA-TDNN checkpoint not found: {_ECAPA_PATH}. "
+            "Run scripts/prepare_embeddings.py or download the weight."
+        )
+    # Fail hard on load errors — silently falling back to random weights would
+    # produce garbage embeddings while the pipeline appears to run normally.
+    state = torch.load(_ECAPA_PATH, map_location="cpu")
+    model.load_state_dict(state, strict=False)
+    print(f"  Loaded ECAPA-TDNN from {_ECAPA_PATH}")
     model.eval()
     return model
 
@@ -411,13 +430,14 @@ def run_cdgcn(args) -> str:
     unique_speakers = len({s.speaker for s in segments})
     print(f"  {len(segments)} segments, {unique_speakers} speakers")
 
-    print("\n[CDGCN] Step 2: Loading ECAPA-TDNN")
-    ecapa = _load_ecapa_model()
+    embedding_name = getattr(args, "embedding", "ecapa")
+    print(f"\n[CDGCN] Step 2: Loading speaker-embedding backend '{embedding_name}'")
+    embedder = get_embedder(embedding_name, device=getattr(args, "device", "cuda"))
 
     print("\n[CDGCN] Step 3: Extracting embeddings")
     valid_segs, embeddings_list = [], []
     for seg in segments:
-        emb = _extract_ecapa_embedding(ecapa, args.audio_path, seg.start, seg.end)
+        emb = embedder.extract(args.audio_path, seg.start, seg.end)
         if emb is not None:
             valid_segs.append(seg)
             embeddings_list.append(emb)
@@ -476,6 +496,13 @@ def main():
     parser.add_argument("--output_dir", required=True,
                         help="Output directory (e.g. data/clean/interview_noise)")
     parser.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
+    parser.add_argument("--embedding", default="ecapa",
+                        choices=["ecapa", "wespeaker34", "wespeaker293", "campplus", "redimnet"],
+                        help="Speaker-embedding backend for ahc/cdgcn/nme-sc (default: ecapa). "
+                             "VBx uses its own ResNet101 x-vector; dover-lap uses no embedding.")
+    parser.add_argument("--drop_overlap", action="store_true", default=False,
+                        help="Delete overlapped-speech regions before cleansing (legacy). "
+                             "Off by default — deleting overlap only inflates missed detection.")
 
     # AHC params
     parser.add_argument("--merge_gap_sec", type=float, default=0.5)
