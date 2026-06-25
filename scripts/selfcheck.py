@@ -105,13 +105,13 @@ def check_embedders():
 
 def check_env():
     print("\n== .env / API keys ==")
-    env = os.path.join(paths.REPO_ROOT, ".env")
-    if os.path.exists(env):
-        for ln in open(env):
-            ln = ln.strip()
-            if ln and not ln.startswith("#") and "=" in ln:
-                k, _, v = ln.partition("=")
-                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    from viespeaker import env as _env
+    loaded = _env.load()
+    if loaded:
+        line(OK, f".env: {loaded}")
+    else:
+        line(WARN, ".env not found (looked at $VIESPEAKER2_ENV_FILE, <repo>/.env, "
+                   "../env/<repo>/.env)")
     line(OK if os.getenv("PYANNOTEAI_API_KEY") else WARN,
          "PYANNOTEAI_API_KEY" + ("" if os.getenv("PYANNOTEAI_API_KEY") else " missing (needed for P1 cloud precision-2)"))
     line(OK if os.getenv("HUGGINGFACE_ACCESS_TOKEN") else WARN,

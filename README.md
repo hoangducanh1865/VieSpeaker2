@@ -58,12 +58,18 @@ python scripts/migrate_assets.py --run     # hoặc copy luôn vào ../VieSpeake
 
 ## 3. Tạo file `.env`
 
-```env
+`.env` **không nằm trong repo**. Loader (`viespeaker.env`) tìm theo thứ tự: `$VIESPEAKER2_ENV_FILE` → `<repo>/.env` → `<repo_parent>/env/<repo_name>/.env`. Khuyến nghị đặt **ngoài repo** (server tự nhận):
+
+```bash
+mkdir -p ~/anhhd/sv/env/VieSpeaker2
+cat > ~/anhhd/sv/env/VieSpeaker2/.env <<'EOF'
 PYANNOTEAI_API_KEY=sk_...           # P1 cloud (pyannote/speaker-diarization-precision-2)
 HUGGINGFACE_ACCESS_TOKEN=hf_...     # P1 local (pyannote/speaker-diarization-3.1)
+EOF
+chmod 600 ~/anhhd/sv/env/VieSpeaker2/.env
 ```
 
-> `PYANNOTEAI_API_KEY` tạo tại [dashboard.pyannote.ai](https://dashboard.pyannote.ai).
+> `PYANNOTEAI_API_KEY` tạo tại [dashboard.pyannote.ai](https://dashboard.pyannote.ai). Đặt nơi khác thì set `VIESPEAKER2_ENV_FILE=/đường/dẫn/.env`.
 
 ## 4. Kiểm tra trước khi chạy
 
@@ -192,11 +198,12 @@ ssh user14@172.16.3.8
 cd /home/user14/anhhd/sv/VieSpeaker2 && git pull
 pip install -e . --no-deps                       # nếu chưa cài
 python scripts/migrate_assets.py --run           # đưa weights+data ra ../VieSpeaker2_assets (một lần)
-cat > .env <<'EOF'                                # .env gitignored → tạo trên server
+mkdir -p ~/anhhd/sv/env/VieSpeaker2              # .env ngoài repo (xem §3)
+cat > ~/anhhd/sv/env/VieSpeaker2/.env <<'EOF'
 PYANNOTEAI_API_KEY=sk_...
 HUGGINGFACE_ACCESS_TOKEN=hf_...
 EOF
-chmod 600 .env
+chmod 600 ~/anhhd/sv/env/VieSpeaker2/.env
 ```
 
 **Cách A — Batch job (khuyến nghị, chạy dài).** Nộp **từ gốc repo**:

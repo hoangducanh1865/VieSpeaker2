@@ -3,24 +3,21 @@ Speaker diarization module using pyannote.audio (Pipeline 1)
 """
 
 import os
+import sys
 import argparse
 import contextlib
 import torch
 from pathlib import Path
 import warnings
 
-
-def _load_dotenv():
-    """Simple .env loader — avoids dependency on python-dotenv."""
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".env")
-    env_path = os.path.normpath(env_path)
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, _, v = line.partition("=")
-                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+# Make `viespeaker` importable from a fresh checkout (for the .env loader).
+_d = os.path.dirname(os.path.abspath(__file__))
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker.env import load as _load_dotenv  # noqa: E402  (configurable .env location)
 
 torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
