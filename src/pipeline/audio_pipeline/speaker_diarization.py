@@ -19,6 +19,7 @@ while _d != os.path.dirname(_d):
     _d = os.path.dirname(_d)
 from viespeaker.env import load as _load_dotenv  # noqa: E402  (configurable .env location)
 from viespeaker.hf_compat import pretrained_auth_kwargs, pyannote_hf_hub_compat  # noqa: E402
+from viespeaker.pyannoteai_client import PyannoteAIClient  # noqa: E402
 
 torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
@@ -89,28 +90,33 @@ class SpeakerDiarizer:
                 print("Pipeline loaded on CPU.")
 
     def diarize(self, audio_path: str, output_dir: str) -> str:
-        self.load_pipeline()
-
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
         print(f"Processing: {audio_path}")
 
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                result = self.pipeline(audio_path)
-        except Exception as e:
-            print(f"Error during inference: {e}")
-            raise
-
         raw_segments = []
         if "precision" in self.model_name.lower():
-            # pyannote/speaker-diarization-precision-* (pyannoteAI cloud)
-            # yields (turn, speaker) — no track label
-            for turn, speaker in result.speaker_diarization:
-                raw_segments.append({"start": turn.start, "end": turn.end, "speaker": speaker})
+            model = self.model_name.rsplit("-", 2)[-2] + "-" + self.model_name.rsplit("-", 1)[-1]
+            print(f"Submitting audio to pyannoteAI cloud model '{model}'...")
+            result = PyannoteAIClient(self.token).diarize(audio_path, model=model)
+            for turn in result["output"]["diarization"]:
+                raw_segments.append(
+                    {
+                        "start": turn["start"],
+                        "end": turn["end"],
+                        "speaker": turn["speaker"],
+                    }
+                )
         else:
+            self.load_pipeline()
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    result = self.pipeline(audio_path)
+            except Exception as e:
+                print(f"Error during inference: {e}")
+                raise
             # Standard pyannote Annotation (e.g. speaker-diarization-3.1)
             # yields (turn, track, speaker)
             for turn, _, speaker in result.itertracks(yield_label=True):
