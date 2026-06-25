@@ -37,3 +37,46 @@ def test_eval_unique_tracks(tmp_path):
     ref.write_text("0.0 1.0 A\n0.0 1.0 B\n")
     ann = load_annotation_from_file(str(ref))
     assert len(list(ann.itertracks())) == 2
+
+
+def test_redimnet_uses_upstream_torch_hub_api(monkeypatch):
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("numpy")
+
+    from viespeaker import bootstrap
+
+    bootstrap.setup()
+    from embeddings.backends.redimnet import ReDimNetEmbedder
+
+    calls = []
+
+    class FakeModel:
+        def to(self, device):
+            self.device = device
+            return self
+
+        def eval(self):
+            return self
+
+    def fake_load(repo, entrypoint, **kwargs):
+        calls.append((repo, entrypoint, kwargs))
+        return FakeModel()
+
+    monkeypatch.setattr(torch.hub, "load", fake_load)
+
+    embedder = ReDimNetEmbedder(device="cpu")
+
+    assert embedder.dim == 192
+    assert calls == [
+        (
+            "IDRnD/ReDimNet",
+            "ReDimNet",
+            {
+                "model_name": "b6",
+                "train_type": "ptn",
+                "dataset": "vox2",
+                "verbose": False,
+                "trust_repo": True,
+            },
+        )
+    ]
