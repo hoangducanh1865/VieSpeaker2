@@ -18,6 +18,7 @@ while _d != os.path.dirname(_d):
         break
     _d = os.path.dirname(_d)
 from viespeaker.env import load as _load_dotenv  # noqa: E402  (configurable .env location)
+from viespeaker.hf_compat import pretrained_auth_kwargs, pyannote_hf_hub_compat  # noqa: E402
 
 torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
@@ -77,8 +78,9 @@ class SpeakerDiarizer:
     def load_pipeline(self):
         if self.pipeline is None:
             print("Loading speaker diarization pipeline...")
-            with _torch_load_weights_only_false():
-                self.pipeline = Pipeline.from_pretrained(self.model_name, token=self.token)
+            auth = pretrained_auth_kwargs(Pipeline.from_pretrained, self.token)
+            with _torch_load_weights_only_false(), pyannote_hf_hub_compat():
+                self.pipeline = Pipeline.from_pretrained(self.model_name, **auth)
 
             if torch.cuda.is_available():
                 self.pipeline.to(torch.device("cuda"))
