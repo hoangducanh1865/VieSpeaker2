@@ -18,12 +18,18 @@ import os
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_CLEAN_PIPELINE_DIR = os.path.join(os.path.dirname(_HERE), "clean_pipeline")
-if _CLEAN_PIPELINE_DIR not in sys.path:
-    sys.path.insert(0, _CLEAN_PIPELINE_DIR)
+# Make `viespeaker` importable from a fresh checkout, then centralize sys.path.
+_d = _HERE
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker import bootstrap  # noqa: E402
+bootstrap.setup()
 
-from dover_lap.src.doverlap import DOVERLap
-from dover_lap.libs.turn import Turn
+from dover_lap.src.doverlap import DOVERLap  # noqa: E402
+from dover_lap.libs.turn import Turn  # noqa: E402
 
 
 def _txt_to_turns(path, file_id):

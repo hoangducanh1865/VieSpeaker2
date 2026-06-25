@@ -39,11 +39,8 @@ import scenarios as SC  # noqa: E402
 from evaluation import evaluate_diarization_files  # noqa: E402
 from make_report import write_report  # noqa: E402
 
-# Pipeline entrypoints
-P1_SCRIPT = os.path.join(_SRC, "pipeline", "audio_pipeline", "speaker_diarization.py")
-P2_SCRIPT = os.path.join(_SRC, "pipeline", "audio_visual_pipeline", "supplement_pipeline.py")
-P3_SCRIPT = os.path.join(_SRC, "pipeline", "clean_pipeline", "clean.py")
-FUSION_SCRIPT = os.path.join(_SRC, "pipeline", "fusion_pipeline", "fuse.py")
+# Pipeline entrypoints + subprocess wrappers (shared with main.py via pipeline_api).
+from viespeaker import pipeline_api  # noqa: E402
 
 # Test-set layout
 # Inputs (audio/video) come from the external assets dir; labels stay in repo.
@@ -65,15 +62,6 @@ def _git_sha():
         return "nogit"
 
 
-def _sh(cmd):
-    """Run a subprocess, streaming output. Returns True on exit code 0."""
-    print("  $", " ".join(str(c) for c in cmd), flush=True)
-    rc = subprocess.run(cmd, cwd=_ROOT).returncode
-    if rc != 0:
-        print(f"  [rc={rc}]", flush=True)
-    return rc == 0
-
-
 def _device():
     try:
         import torch
@@ -91,14 +79,10 @@ def ensure_p1(cache_dir, key, sample):
     out = os.path.join(out_dir, f"{sample}.txt")
     if os.path.exists(out):
         return out
-    ok = _sh([
-        sys.executable, P1_SCRIPT,
-        "--audio_path", os.path.join(AUDIO_DIR, f"{sample}.wav"),
-        "--output_dir", out_dir,
-        "--model", SC.P1_MODELS[key],
-        "--overlap_policy", "keep",
-    ])
-    return out if (ok and os.path.exists(out)) else None
+    return pipeline_api.run_p1(
+        os.path.join(AUDIO_DIR, f"{sample}.wav"), out_dir, SC.P1_MODELS[key],
+        overlap_policy="keep",
+    )
 
 
 def ensure_p2(cache_dir, p1_key, asd, sample, device):
@@ -110,14 +94,9 @@ def ensure_p2(cache_dir, p1_key, asd, sample, device):
     sd = ensure_p1(cache_dir, p1_key, sample)
     if not sd:
         return None
-    _sh([
-        sys.executable, P2_SCRIPT,
-        "--video_path", os.path.join(VIDEO_DIR, f"{sample}.mp4"),
-        "--sd_diarization", sd,
-        "--model", asd,
-        "--out_dir", out_dir,
-    ])
-    return out if os.path.exists(out) else None
+    return pipeline_api.run_p2(
+        os.path.join(VIDEO_DIR, f"{sample}.mp4"), sd, asd, out_dir,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -139,21 +118,12 @@ def build_hyp(scn, sample, cache_dir, scen_dir, device):
         if not din:
             return None
         sample_out = os.path.join(scen_dir, sample)
-        os.makedirs(sample_out, exist_ok=True)
-        cmd = [
-            sys.executable, P3_SCRIPT,
-            "--method", scn["method"],
-            "--embedding", scn.get("embedding", "ecapa"),
-            "--diarization_path", din,
-            "--audio_path", os.path.join(AUDIO_DIR, f"{sample}.wav"),
-            "--output_dir", sample_out,
-            "--device", device,
-        ]
+        extra = ["--embedding", scn.get("embedding", "ecapa"), "--device", device]
         if scn["method"] == "dover-lap":
-            cmd += ["--diarization_path2", ensure_p1(cache_dir, SC.BASE_P1, sample) or din]
-        _sh(cmd)
-        out = os.path.join(sample_out, "cleansed_diarization.txt")
-        return out if os.path.exists(out) else None
+            extra += ["--diarization_path2", ensure_p1(cache_dir, SC.BASE_P1, sample) or din]
+        return pipeline_api.run_p3(
+            scn["method"], din, os.path.join(AUDIO_DIR, f"{sample}.wav"), sample_out, extra,
+        )
 
     if kind == "fusion":
         inputs = []
@@ -166,11 +136,7 @@ def build_hyp(scn, sample, cache_dir, scen_dir, device):
         if not inputs:
             return None
         sample_out = os.path.join(scen_dir, sample)
-        os.makedirs(sample_out, exist_ok=True)
-        _sh([sys.executable, FUSION_SCRIPT, "--inputs", *inputs,
-             "--output_dir", sample_out, "--file_id", sample])
-        out = os.path.join(sample_out, "fused_diarization.txt")
-        return out if os.path.exists(out) else None
+        return pipeline_api.run_fusion(inputs, sample_out, sample)
 
     raise ValueError(f"Unknown scenario kind: {kind}")
 

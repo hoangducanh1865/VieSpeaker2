@@ -338,11 +338,7 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
 		inference_stride: Frame stride for inference
 		min_segment_sec: Minimum segment duration
 	"""
-	is_dir = os.path.isdir(video_path)
-	if is_dir:
-		video_path_for_loconet = video_path
-	else:
-		video_path_for_loconet = video_path
+	video_path_for_loconet = video_path
 
 	loconet_output_dir = os.path.join(
 		os.path.dirname(output_txt_path),

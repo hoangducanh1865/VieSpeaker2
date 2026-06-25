@@ -317,7 +317,7 @@ def run_ahc(args) -> str:
 # CDGCN method: ECAPA-TDNN (model.py) + KNN graph + Leiden
 # ============================================================================
 
-def _load_ecapa_model():
+def _load_ecapa_model(device: str = "cpu"):
     # Insert the ECAPA code dir at sys.path[0] just-in-time so its generic
     # `model.py` wins over other vendored `model` modules.
     if _ECAPA_CODE_ROOT not in sys.path:
@@ -327,24 +327,24 @@ def _load_ecapa_model():
     if not os.path.exists(_ECAPA_PATH):
         raise FileNotFoundError(
             f"ECAPA-TDNN checkpoint not found: {_ECAPA_PATH}. "
-            "Run scripts/prepare_embeddings.py or download the weight."
+            "Populate the assets dir (scripts/migrate_assets.py)."
         )
     # Fail hard on load errors — silently falling back to random weights would
     # produce garbage embeddings while the pipeline appears to run normally.
     state = torch.load(_ECAPA_PATH, map_location="cpu")
     model.load_state_dict(state, strict=False)
-    print(f"  Loaded ECAPA-TDNN from {_ECAPA_PATH}")
+    dev = "cuda" if (device == "cuda" and torch.cuda.is_available()) else "cpu"
+    model = model.to(dev)
+    print(f"  Loaded ECAPA-TDNN from {_ECAPA_PATH} on {dev}")
     model.eval()
     return model
 
 
 def _extract_ecapa_embedding(model, audio_path: str, start: float, end: float) -> Optional[np.ndarray]:
     try:
-        waveform, sr = torchaudio.load(audio_path)
-        if sr != SAMPLE_RATE:
-            waveform = torchaudio.transforms.Resample(sr, SAMPLE_RATE)(waveform)
-        if waveform.shape[0] > 1:
-            waveform = waveform[0:1]
+        from viespeaker.audio import load_mono
+        # Whole file loaded + resampled once and cached; we just slice it here.
+        waveform = load_mono(audio_path, SAMPLE_RATE)
         s, e = int(start * SAMPLE_RATE), int(end * SAMPLE_RATE)
         chunk = waveform[:, s:e]
         if chunk.shape[1] < 160:
@@ -360,6 +360,7 @@ def _extract_ecapa_embedding(model, audio_path: str, start: float, end: float) -
         mel = torch.log(mel + 1e-9)
         mel = mel - torch.mean(mel, dim=-1, keepdim=True)
 
+        mel = mel.to(next(model.parameters()).device)
         with torch.no_grad():
             emb = model(mel).squeeze(0).cpu().numpy()
         return emb / (np.linalg.norm(emb) + 1e-8)

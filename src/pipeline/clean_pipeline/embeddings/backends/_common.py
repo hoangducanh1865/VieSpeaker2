@@ -2,7 +2,6 @@
 
 import numpy as np
 import torch
-import torchaudio
 
 SAMPLE_RATE = 16000
 
@@ -10,13 +9,14 @@ SAMPLE_RATE = 16000
 def load_segment_waveform(audio_path, start, end, sample_rate=SAMPLE_RATE):
     """Load a mono [start, end] crop as a (1, T) float tensor at `sample_rate`.
 
+    The full file is loaded + resampled once and cached (see viespeaker.audio),
+    so repeated per-segment calls only slice an in-memory tensor.
+
     Returns None if the crop is shorter than 10 ms (too short for a frame).
     """
-    waveform, sr = torchaudio.load(audio_path)
-    if sr != sample_rate:
-        waveform = torchaudio.transforms.Resample(sr, sample_rate)(waveform)
-    if waveform.shape[0] > 1:
-        waveform = waveform[0:1]
+    from viespeaker.audio import load_mono
+
+    waveform = load_mono(audio_path, sample_rate)
     s = max(0, int(round(start * sample_rate)))
     e = int(round(end * sample_rate))
     chunk = waveform[:, s:e]

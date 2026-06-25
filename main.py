@@ -16,7 +16,6 @@ Usage:
 import os
 import sys
 import argparse
-import subprocess
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _SRC = os.path.join(_ROOT, "src")
@@ -34,65 +33,29 @@ VIDEO_DIR = str(paths.VIDEO_DIR)
 LABEL_DIR = str(paths.LABEL_DIR)
 EXPERIMENTS_DIR = os.path.join(_ROOT, "experiment")
 
-P1_SCRIPT = os.path.join(_SRC, "pipeline", "audio_pipeline", "speaker_diarization.py")
-P2_SCRIPT = os.path.join(_SRC, "pipeline", "audio_visual_pipeline", "supplement_pipeline.py")
-P3_SCRIPT = os.path.join(_SRC, "pipeline", "clean_pipeline", "clean.py")
-FUSION_SCRIPT = os.path.join(_SRC, "pipeline", "fusion_pipeline", "fuse.py")
-EVAL_SCRIPT = os.path.join(_SRC, "evaluation", "evaluation.py")
-
-
-def _run(cmd: list, label: str) -> bool:
-    print(f"\n{'='*60}")
-    print(f"  {label}")
-    print(f"{'='*60}")
-    print("CMD:", " ".join(str(c) for c in cmd))
-    result = subprocess.run(cmd, check=False)
-    if result.returncode != 0:
-        print(f"[WARNING] {label} exited with code {result.returncode}")
-    return result.returncode == 0
+from viespeaker import pipeline_api  # noqa: E402  (subprocess command construction)
 
 
 def run_pipeline_1(sample: str, output_dir: str, model: str, min_seg: float, max_gap: float,
                    overlap_policy: str = "keep") -> str:
     audio_path = os.path.join(AUDIO_DIR, f"{sample}.wav")
-    os.makedirs(output_dir, exist_ok=True)
-    ok = _run(
-        [
-            sys.executable, P1_SCRIPT,
-            "--audio_path", audio_path,
-            "--output_dir", output_dir,
-            "--model", model,
-            "--min_segment_duration", str(min_seg),
-            "--max_gap_threshold", str(max_gap),
-            "--overlap_policy", overlap_policy,
-        ],
-        f"Pipeline 1 — Speaker Diarization: {sample}",
+    out = pipeline_api.run_p1(
+        audio_path, output_dir, model, min_seg=min_seg, max_gap=max_gap,
+        overlap_policy=overlap_policy, label=f"Pipeline 1 — Speaker Diarization: {sample}",
     )
     output_path = os.path.join(output_dir, f"{sample}.txt")
-    if ok and os.path.exists(output_path):
-        print(f"[P1] Output: {output_path}")
-    else:
-        print(f"[P1] Expected output not found: {output_path}")
+    print(f"[P1] Output: {output_path}" if out else f"[P1] Expected output not found: {output_path}")
     return output_path
 
 
 def run_pipeline_2(sample: str, sd_diarization: str, asd_model: str, output_dir: str) -> str:
     video_path = os.path.join(VIDEO_DIR, f"{sample}.mp4")
-    ok = _run(
-        [
-            sys.executable, P2_SCRIPT,
-            "--video_path", video_path,
-            "--sd_diarization", sd_diarization,
-            "--model", asd_model,
-            "--out_dir", output_dir,
-        ],
-        f"Pipeline 2 — Audio-Visual ASD ({asd_model}): {sample}",
+    out = pipeline_api.run_p2(
+        video_path, sd_diarization, asd_model, output_dir,
+        label=f"Pipeline 2 — Audio-Visual ASD ({asd_model}): {sample}",
     )
     output_path = os.path.join(output_dir, sample, "supplemented_diarization.txt")
-    if ok and os.path.exists(output_path):
-        print(f"[P2] Output: {output_path}")
-    else:
-        print(f"[P2] Expected output not found: {output_path}")
+    print(f"[P2] Output: {output_path}" if out else f"[P2] Expected output not found: {output_path}")
     return output_path
 
 
@@ -101,65 +64,33 @@ def run_pipeline_3(
 ) -> str:
     audio_path = os.path.join(AUDIO_DIR, f"{sample}.wav")
     sample_out = os.path.join(output_dir, sample)
-    os.makedirs(sample_out, exist_ok=True)
 
     method_extra = list(extra_args)
     if method == "dover-lap":
-        p1_path = os.path.join(DATA_DIR, "diarization", f"{sample}.txt")
-        method_extra += ["--diarization_path2", p1_path]
+        method_extra += ["--diarization_path2", os.path.join(DATA_DIR, "diarization", f"{sample}.txt")]
 
-    ok = _run(
-        [
-            sys.executable, P3_SCRIPT,
-            "--method", method,
-            "--diarization_path", diarization_path,
-            "--audio_path", audio_path,
-            "--output_dir", sample_out,
-        ] + method_extra,
-        f"Pipeline 3 — Cleansing ({method}): {sample}",
+    out = pipeline_api.run_p3(
+        method, diarization_path, audio_path, sample_out, method_extra,
+        label=f"Pipeline 3 — Cleansing ({method}): {sample}",
     )
     output_path = os.path.join(sample_out, "cleansed_diarization.txt")
-    if ok and os.path.exists(output_path):
-        print(f"[P3] Output: {output_path}")
-    else:
-        print(f"[P3] Expected output not found: {output_path}")
+    print(f"[P3] Output: {output_path}" if out else f"[P3] Expected output not found: {output_path}")
     return output_path
 
 
 def run_evaluation(pipeline_num, sample: str, hyp_path: str, ref_path: str, method: str = "",
                    collar: float = 0.0):
-    if not os.path.exists(hyp_path):
-        print(f"[EVAL] Skipping — hypothesis file missing: {hyp_path}")
-        return
-    os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
-    cmd = [
-        sys.executable, EVAL_SCRIPT,
-        "--pipeline", str(pipeline_num),
-        "--hyp_path", hyp_path,
-        "--ref_path", ref_path,
-        "--sample_key", sample,
-        "--experiments_dir", EXPERIMENTS_DIR,
-        "--collar", str(collar),
-    ]
-    if str(pipeline_num) == "3" and method:
-        cmd += ["--method", method]
-    _run(cmd, f"Evaluation — Pipeline {pipeline_num}: {sample}")
+    pipeline_api.evaluate(
+        pipeline_num, hyp_path, ref_path, sample, EXPERIMENTS_DIR,
+        method=method, collar=collar, label=f"Evaluation — Pipeline {pipeline_num}: {sample}",
+    )
 
 
 def run_fusion_pipeline(sample: str, input_paths: list, output_dir: str) -> str:
     sample_out = os.path.join(output_dir, sample)
-    os.makedirs(sample_out, exist_ok=True)
-    present = [p for p in input_paths if p and os.path.exists(p)]
-    _run(
-        [sys.executable, FUSION_SCRIPT, "--inputs", *present,
-         "--output_dir", sample_out, "--file_id", sample],
-        f"Fusion (DOVER-Lap): {sample}",
-    )
+    out = pipeline_api.run_fusion(input_paths, sample_out, sample, label=f"Fusion (DOVER-Lap): {sample}")
     output_path = os.path.join(sample_out, "fused_diarization.txt")
-    if os.path.exists(output_path):
-        print(f"[FUSION] Output: {output_path}")
-    else:
-        print(f"[FUSION] Expected output not found: {output_path}")
+    print(f"[FUSION] Output: {output_path}" if out else f"[FUSION] Expected output not found: {output_path}")
     return output_path
 
 

@@ -17,7 +17,7 @@ def load_annotation_from_file(file_path, uri="default_audio_id"):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Could not find the file: {file_path}")
     with open(file_path, "r") as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
             if not line:
                 continue
@@ -26,7 +26,9 @@ def load_annotation_from_file(file_path, uri="default_audio_id"):
                 start = float(parts[0])
                 end = float(parts[1])
                 speaker = parts[2]
-                annotation[Segment(start, end)] = speaker
+                # Unique track per line so two segments with identical [start,end]
+                # but different speakers don't overwrite each other (default track).
+                annotation[Segment(start, end), i] = speaker
     return annotation
 
 

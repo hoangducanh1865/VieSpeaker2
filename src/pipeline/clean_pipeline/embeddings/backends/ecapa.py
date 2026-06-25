@@ -11,7 +11,7 @@ class EcapaEmbedder:
         # clean.py imports the registry, which lazily imports this backend.
         from clean import _load_ecapa_model, _extract_ecapa_embedding
         self._extract = _extract_ecapa_embedding
-        self.model = _load_ecapa_model()  # CPU; segments are short
+        self.model = _load_ecapa_model(device=device)  # honours requested device
         self.dim = 192
 
     def extract(self, audio_path, start, end):
