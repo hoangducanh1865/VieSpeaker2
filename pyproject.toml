@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "viespeaker"
+version = "1.0.0"
+description = "VieSpeaker2 — Vietnamese speaker diarization (audio / audio-visual / cleansing / fusion)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+# The heavy runtime stack (torch, pyannote, onnxruntime, insightface, …) is
+# installed from requirements.txt (GPU) or requirements-cpu.txt (CPU) so the
+# carefully-pinned server env is never re-resolved. `pip install -e .` only
+# registers the `viespeaker` glue package; use `--no-deps` on the server.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4", "black>=24.0"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["viespeaker*"]
+
+# --------------------------------------------------------------------------- #
+# Tooling
+# --------------------------------------------------------------------------- #
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+# Vendored third-party trees are left untouched.
+extend-exclude = '''
+/(
+    src/pipeline/audio_visual_pipeline/audio_visual_model
+  | src/pipeline/audio_visual_pipeline/face_detection_model
+  | src/pipeline/clean_pipeline/dover_lap
+  | src/pipeline/clean_pipeline/vbx
+  | src/pipeline/clean_pipeline/nme_sc
+  | stuff
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = [
+    "src/pipeline/audio_visual_pipeline/audio_visual_model",
+    "src/pipeline/audio_visual_pipeline/face_detection_model",
+    "src/pipeline/clean_pipeline/dover_lap",
+    "src/pipeline/clean_pipeline/vbx",
+    "src/pipeline/clean_pipeline/nme_sc",
+    "src/pipeline/clean_pipeline/models",
+    "src/pipeline/clean_pipeline/embeddings/backends/arch",
+    "notebook",
+    "stuff",
+]
+
+[tool.ruff.lint]
+# Conservative: real bugs / unused imports, not style nits, to avoid churn.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F841"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

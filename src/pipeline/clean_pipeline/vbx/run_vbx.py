@@ -14,12 +14,16 @@ from scipy.special import softmax
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage as scipy_linkage, fcluster
 
+from viespeaker import paths as _paths
+
 _VBX_DIR = os.path.dirname(os.path.abspath(__file__))
 _CLEAN_PIPELINE_DIR = os.path.dirname(_VBX_DIR)
-_ONNX_PATH = os.path.join(_VBX_DIR, "models", "ResNet101_16kHz", "nnet", "final.onnx")
-_PLDA_PATH = os.path.join(_VBX_DIR, "models", "ResNet101_16kHz", "plda")
-_XFORM_PATH = os.path.join(_VBX_DIR, "models", "ResNet101_16kHz", "transform.h5")
+# Weights live in the external assets dir (see viespeaker.paths).
+_ONNX_PATH = str(_paths.VBX_ONNX)
+_PLDA_PATH = str(_paths.VBX_PLDA)
+_XFORM_PATH = str(_paths.VBX_XFORM)
 
+# Just-in-time insert (vbx exposes generic names like `features`, `VBx`).
 for _p in [_VBX_DIR, _CLEAN_PIPELINE_DIR]:
     if _p not in sys.path:
         sys.path.insert(0, _p)

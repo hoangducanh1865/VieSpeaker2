@@ -22,8 +22,7 @@ from clean import (
     parse_diarization,
     write_diarization,
     merge_same_speaker_segments,
-    _load_ecapa_model,
-    _extract_ecapa_embedding,
+    get_embedder,
 )
 
 
@@ -46,13 +45,14 @@ def run_nme_sc(args) -> str:
         write_diarization(output_path, [])
         return output_path
 
-    print("\n[NME-SC] Step 2: Loading ECAPA-TDNN model")
-    model = _load_ecapa_model()
+    embedding_name = getattr(args, "embedding", "ecapa")
+    print(f"\n[NME-SC] Step 2: Loading speaker-embedding backend '{embedding_name}'")
+    embedder = get_embedder(embedding_name, device=getattr(args, "device", "cuda"))
 
     print("\n[NME-SC] Step 3: Extracting embeddings")
     embeddings, valid_segs = [], []
     for seg in segments:
-        emb = _extract_ecapa_embedding(model, args.audio_path, seg.start, seg.end)
+        emb = embedder.extract(args.audio_path, seg.start, seg.end)
         if emb is not None:
             embeddings.append(emb)
             valid_segs.append(seg)

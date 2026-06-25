@@ -17,7 +17,7 @@ def load_annotation_from_file(file_path, uri="default_audio_id"):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Could not find the file: {file_path}")
     with open(file_path, "r") as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
             if not line:
                 continue
@@ -26,7 +26,9 @@ def load_annotation_from_file(file_path, uri="default_audio_id"):
                 start = float(parts[0])
                 end = float(parts[1])
                 speaker = parts[2]
-                annotation[Segment(start, end)] = speaker
+                # Unique track per line so two segments with identical [start,end]
+                # but different speakers don't overwrite each other (default track).
+                annotation[Segment(start, end), i] = speaker
     return annotation
 
 
@@ -66,15 +68,21 @@ def measure_coverage(reference: Annotation, hypothesis: Annotation):
     return hypothesis_speech_duration / video_duration
 
 
-def evaluate_diarization_files(ref_file_path, hyp_file_path):
+def evaluate_diarization_files(ref_file_path, hyp_file_path, collar=0.0, skip_overlap=False):
     common_uri = "evaluation_session_01"
     reference = load_annotation_from_file(ref_file_path, uri=common_uri)
     hypothesis = load_annotation_from_file(hyp_file_path, uri=common_uri)
     hypothesis_speech_duration = hypothesis.get_timeline().duration()
 
-    der_metric = DiarizationErrorRate()
+    # Primary DER as configured (default collar=0, scoring overlap — strict).
+    der_metric = DiarizationErrorRate(collar=collar, skip_overlap=skip_overlap)
     der_score = der_metric(reference, hypothesis)
     components = der_metric.compute_components(reference, hypothesis)
+
+    # Also report the widely-used forgiving variant (collar=0.25s) so numbers are
+    # comparable with the diarization literature.
+    der_c025_metric = DiarizationErrorRate(collar=0.25, skip_overlap=skip_overlap)
+    der_c025 = float(der_c025_metric(reference, hypothesis))
 
     purity_metric = DiarizationPurity()
     purity_score = float(purity_metric(reference, hypothesis))
@@ -101,7 +109,8 @@ def evaluate_diarization_files(ref_file_path, hyp_file_path):
     print(f"--- Evaluation Results ---")
     print(f"Reference File:  {ref_file_path}")
     print(f"Hypothesis File: {hyp_file_path}")
-    print(f"Overall DER:     {der_score * 100:.2f}%\n")
+    print(f"Overall DER:     {der_score * 100:.2f}%  (collar={collar}, skip_overlap={skip_overlap})")
+    print(f"DER (collar=0.25): {der_c025 * 100:.2f}%\n")
     print(f"Coverage (hyp/video):  {coverage_hyp * 100:.2f}%")
     print(f"Purity:                {purity_score * 100:.2f}%")
     print(f"Coverage:              {coverage_score * 100:.2f}%")
@@ -116,6 +125,7 @@ def evaluate_diarization_files(ref_file_path, hyp_file_path):
 
     return {
         "der": float(der_score) * 100,
+        "der_collar025": der_c025 * 100,
         "false_alarm_pct": false_alarm_pct,
         "missed_detection_pct": missed_detection_pct,
         "confusion_pct": confusion_pct,
@@ -400,6 +410,7 @@ def plot_all_samples_summary_table(results: dict, pipeline_num: int, experiments
     COLS = [
         ("Sample",    None),
         ("DER %",     "der"),
+        ("DERc25 %",  "der_collar025"),
         ("FA %",      "false_alarm_pct"),
         ("MD %",      "missed_detection_pct"),
         ("Conf %",    "confusion_pct"),
@@ -569,35 +580,46 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Evaluate diarization results and generate PNG charts"
     )
-    parser.add_argument("--pipeline", type=int, choices=[1, 2, 3], required=True)
+    parser.add_argument("--pipeline", choices=["1", "2", "3", "fusion"], required=True,
+                        help="Pipeline label. 1/2/3 for the cascade stages, 'fusion' for DOVER-Lap fusion.")
     parser.add_argument("--hyp_path", required=True, help="Hypothesis diarization file")
     parser.add_argument("--ref_path", required=True, help="Reference diarization file")
     parser.add_argument("--sample_key", default="unknown", help="Sample name (used as chart label)")
     parser.add_argument("--experiments_dir", default="experiment", help="Directory for charts and JSON")
     parser.add_argument("--method", default="", help="Cleansing method (pipeline 3 only)")
+    parser.add_argument("--collar", type=float, default=0.0,
+                        help="Primary DER collar in seconds (default 0.0 = strict). "
+                             "DER at collar=0.25 is always reported too.")
+    parser.add_argument("--skip_overlap", action="store_true", default=False,
+                        help="Skip overlapped-speech regions when scoring DER.")
 
     args = parser.parse_args()
 
-    metrics = evaluate_diarization_files(args.ref_path, args.hyp_path)
+    # Normalise: keep int semantics for the cascade stages, "fusion" stays a str.
+    pipeline_id = int(args.pipeline) if args.pipeline in ("1", "2", "3") else args.pipeline
 
-    results = _load_results(args.experiments_dir, args.pipeline, args.method)
+    metrics = evaluate_diarization_files(
+        args.ref_path, args.hyp_path, collar=args.collar, skip_overlap=args.skip_overlap
+    )
+
+    results = _load_results(args.experiments_dir, pipeline_id, args.method)
     results[args.sample_key] = metrics
-    _save_results(args.experiments_dir, args.pipeline, results, args.method)
+    _save_results(args.experiments_dir, pipeline_id, results, args.method)
 
     # Bar/stacked charts
-    if args.pipeline == 1:
+    if pipeline_id == 1:
         plot_pipeline1_der_chart(results, args.experiments_dir)
-    elif args.pipeline == 2:
+    elif pipeline_id == 2:
         plot_pipeline2_prf_chart(results, args.experiments_dir)
-    elif args.pipeline == 3:
+    elif pipeline_id == 3:
         results_p2 = _load_results(args.experiments_dir, 2)
         plot_pipeline3_purity_chart(results, results_p2, args.experiments_dir, args.method)
 
     # Per-sample table + all-samples summary table + cross-pipeline line chart
-    plot_metrics_table(metrics, args.sample_key, args.pipeline, args.experiments_dir, args.method)
-    plot_all_samples_summary_table(results, args.pipeline, args.experiments_dir, args.method)
+    plot_metrics_table(metrics, args.sample_key, pipeline_id, args.experiments_dir, args.method)
+    plot_all_samples_summary_table(results, pipeline_id, args.experiments_dir, args.method)
     plot_pipeline_comparison_line(args.experiments_dir)
 
     # P3 multi-method comparison (only generated if ≥ 2 methods have data)
-    if args.pipeline == 3:
+    if pipeline_id == 3:
         plot_pipeline3_methods_comparison(args.experiments_dir)

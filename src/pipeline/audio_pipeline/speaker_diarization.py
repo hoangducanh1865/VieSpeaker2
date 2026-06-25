@@ -3,35 +3,45 @@ Speaker diarization module using pyannote.audio (Pipeline 1)
 """
 
 import os
+import sys
 import argparse
+import contextlib
 import torch
 from pathlib import Path
 import warnings
 
-
-def _load_dotenv():
-    """Simple .env loader — avoids dependency on python-dotenv."""
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".env")
-    env_path = os.path.normpath(env_path)
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, _, v = line.partition("=")
-                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+# Make `viespeaker` importable from a fresh checkout (for the .env loader).
+_d = os.path.dirname(os.path.abspath(__file__))
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker.env import load as _load_dotenv  # noqa: E402  (configurable .env location)
 
 torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
-_original_torch_load = torch.load
 
+@contextlib.contextmanager
+def _torch_load_weights_only_false():
+    """Temporarily force torch.load(weights_only=False) only while loading the
+    pyannote pipeline (some checkpoints are not loadable under the new default).
 
-def _patched_torch_load(*args, **kwargs):
-    kwargs["weights_only"] = False
-    return _original_torch_load(*args, **kwargs)
+    Scoped via context manager instead of a global monkeypatch so the rest of the
+    process keeps PyTorch's safe default behaviour.
+    """
+    original = torch.load
 
+    def _patched(*args, **kwargs):
+        kwargs["weights_only"] = False
+        return original(*args, **kwargs)
 
-torch.load = _patched_torch_load
+    torch.load = _patched
+    try:
+        yield
+    finally:
+        torch.load = original
+
 
 from pyannote.audio import Pipeline
 
@@ -50,17 +60,25 @@ class SpeakerDiarizer:
         model_name: str = "pyannote/speaker-diarization-precision-2",
         min_segment_duration: float = 0.5,
         max_gap_threshold: float = 0.5,
+        overlap_policy: str = "keep",
     ):
         self.token = token
         self.model_name = model_name
         self.pipeline = None
         self.min_segment_duration = min_segment_duration
         self.max_gap_threshold = max_gap_threshold
+        # overlap_policy:
+        #   "keep"     -> keep pyannote's native overlapping segments (recommended;
+        #                 dropping overlap is a guaranteed missed-detection floor)
+        #   "drop"     -> keep only single-speaker spans (legacy behaviour)
+        #   "dominant" -> on overlap, keep the longest-active speaker for that span
+        self.overlap_policy = overlap_policy
 
     def load_pipeline(self):
         if self.pipeline is None:
             print("Loading speaker diarization pipeline...")
-            self.pipeline = Pipeline.from_pretrained(self.model_name, token=self.token)
+            with _torch_load_weights_only_false():
+                self.pipeline = Pipeline.from_pretrained(self.model_name, token=self.token)
 
             if torch.cuda.is_available():
                 self.pipeline.to(torch.device("cuda"))
@@ -104,7 +122,13 @@ class SpeakerDiarizer:
             with open(debug_path, "w") as f_debug:
                 f_debug.write(str(raw_segments))
 
-        cleaned_segments = self._remove_overlaps(raw_segments)
+        if self.overlap_policy == "drop":
+            cleaned_segments = self._remove_overlaps(raw_segments)
+        elif self.overlap_policy == "dominant":
+            cleaned_segments = self._resolve_overlaps_dominant(raw_segments)
+        else:  # "keep" — preserve pyannote's native (possibly overlapping) segments
+            cleaned_segments = sorted(raw_segments, key=lambda s: (s["start"], s["end"]))
+        print(f"Segments after overlap_policy='{self.overlap_policy}': {len(cleaned_segments)}")
         merged_segments = self._merge_segments(cleaned_segments)
 
         os.makedirs(output_dir, exist_ok=True)
@@ -151,6 +175,46 @@ class SpeakerDiarizer:
 
         return [s for s in final_segments if (s["end"] - s["start"]) > 0.1]
 
+    def _resolve_overlaps_dominant(self, segments: list) -> list:
+        """On overlapping spans keep a single speaker (the one whose original
+        segment is longest = a confidence proxy), instead of deleting the span.
+
+        Unlike `_remove_overlaps`, this never drops speech — every covered span
+        is emitted with exactly one label, so overlap no longer inflates MD.
+        """
+        if not segments:
+            return []
+
+        events = []
+        for idx, seg in enumerate(segments):
+            dur = seg["end"] - seg["start"]
+            events.append((seg["start"], "start", idx, seg["speaker"], dur))
+            events.append((seg["end"], "end", idx, seg["speaker"], dur))
+        events.sort(key=lambda x: (x[0], 0 if x[1] == "end" else 1))
+
+        active = {}  # idx -> (speaker, duration)
+        last_time = 0.0
+        spans = []
+        for t, etype, idx, spk, dur in events:
+            if t > last_time and active:
+                # pick the active segment with the longest original duration
+                best_idx = max(active, key=lambda i: active[i][1])
+                spans.append({"start": last_time, "end": t, "speaker": active[best_idx][0]})
+            if etype == "start":
+                active[idx] = (spk, dur)
+            else:
+                active.pop(idx, None)
+            last_time = t
+
+        # stitch adjacent same-speaker spans produced by the sweep
+        stitched = []
+        for s in spans:
+            if stitched and stitched[-1]["speaker"] == s["speaker"] and abs(stitched[-1]["end"] - s["start"]) < 1e-6:
+                stitched[-1]["end"] = s["end"]
+            else:
+                stitched.append(dict(s))
+        return [s for s in stitched if (s["end"] - s["start"]) > 0.1]
+
     def _merge_segments(self, segments: list) -> list:
         if not segments:
             return []
@@ -178,6 +242,10 @@ def main():
                              " or 'pyannote/speaker-diarization-3.1' (local GPU/CPU).")
     parser.add_argument("--min_segment_duration", type=float, default=0.5)
     parser.add_argument("--max_gap_threshold", type=float, default=0.5)
+    parser.add_argument("--overlap_policy", choices=["keep", "drop", "dominant"], default="keep",
+                        help="How to handle overlapped-speech regions. 'keep' (default) preserves "
+                             "pyannote's native overlapping segments; 'drop' deletes overlap spans "
+                             "(legacy, inflates missed detection); 'dominant' keeps one speaker per span.")
     args = parser.parse_args()
 
     # Token selection: precision-* uses PYANNOTEAI_API_KEY (pyannoteAI cloud key),
@@ -200,6 +268,7 @@ def main():
         model_name=args.model,
         min_segment_duration=args.min_segment_duration,
         max_gap_threshold=args.max_gap_threshold,
+        overlap_policy=args.overlap_policy,
     )
     try:
         output_path = diarizer.diarize(args.audio_path, args.output_dir)

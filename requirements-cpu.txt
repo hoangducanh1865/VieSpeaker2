@@ -1,10 +1,9 @@
-# VieSpeaker2 — pip requirements (Linux + CUDA / A100).
-# Installed by environment.yml into the conda env `VieSpeaker2` (python 3.9).
+# VieSpeaker2 — CPU / local-dev requirements (macOS / Linux, no CUDA).
+# Mirror of requirements.txt but with CPU torch wheels + CPU onnxruntime.
+# Keep in sync with requirements.txt when adding/removing deps.
 #
-# NOTE: torch/torchaudio are pulled from the PyTorch CUDA index below so the GPU
-# build is installed automatically. Change cu124 to match your driver if needed
-# (see https://pytorch.org for the right CUDA tag).
---extra-index-url https://download.pytorch.org/whl/cu124
+#
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 # ---- Core DL stack -------------------------------------------------------
 torch==2.8.0
@@ -15,7 +14,7 @@ lightning==2.6.0
 lightning-utilities==0.15.2
 
 # ---- ONNX runtime (GPU build — needed for SCRFD/ArcFace/VBx/WeSpeaker293) -
-onnxruntime-gpu==1.19.2
+onnxruntime==1.19.2
 onnx==1.19.1
 
 # ---- Speaker diarization (Pipeline 1) ------------------------------------
