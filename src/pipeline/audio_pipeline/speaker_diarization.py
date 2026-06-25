@@ -21,7 +21,10 @@ from viespeaker.env import load as _load_dotenv  # noqa: E402  (configurable .en
 from viespeaker.hf_compat import pretrained_auth_kwargs, pyannote_hf_hub_compat  # noqa: E402
 from viespeaker.pyannoteai_client import PyannoteAIClient  # noqa: E402
 
-torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
+# PyTorch >=2.6 defaults torch.load to weights_only=True and exposes this
+# allow-list API.  The DGX-compatible PyTorch 2.3 build does neither.
+if hasattr(torch.serialization, "add_safe_globals"):
+    torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
 
 @contextlib.contextmanager

@@ -31,7 +31,8 @@ conda activate VieSpeaker2
 pip install -e . --no-deps
 ```
 
-> `requirements.txt` dùng PyTorch `cu118`, tương thích driver 470/CUDA 11.4 trên
+> `requirements.txt` dùng PyTorch 2.3.1 `cu118` + cuDNN 8, tương thích cả
+> driver 470/CUDA 11.4 và ONNX Runtime CUDA 11 trên
 > DGX của cụm. Dev/CPU (mac) dùng `requirements-cpu.txt`. Python ≥3.9
 > (env hiện tại là 3.9).
 

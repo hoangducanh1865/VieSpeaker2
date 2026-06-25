@@ -6,8 +6,9 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # ---- Core DL stack -------------------------------------------------------
-torch==2.5.1+cpu
-torchaudio==2.5.1+cpu
+torch==2.3.1+cpu
+torchaudio==2.3.1+cpu
+torchvision==0.18.1+cpu
 torchmetrics==1.8.2
 pytorch-lightning==2.6.0
 lightning==2.6.0
