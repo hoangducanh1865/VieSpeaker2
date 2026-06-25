@@ -44,24 +44,23 @@ def main() -> None:
         (present if src.exists() else missing).append(a)
 
     if not args.run:
-        print('# Run from the repo root on the server. Relocates weights + test media')
-        print('# into the sibling assets dir (default location, no env var needed).')
-        print('set -e')
+        # Emit guarded commands for ALL manifest entries (a file absent on this
+        # machine may still be present on the server — `cp` is skipped if missing,
+        # so the same block is safe to paste anywhere). No `set -e`.
+        print('# Run from the repo root. Relocates weights + test media into the')
+        print('# sibling assets dir (default location, no env var needed).')
         print('ASSETS=../VieSpeaker2_assets')
         seen_dirs = set()
-        for a in present:
+        for a in M.ALL:
             dest_rel = _rel_dest(a)
             dest_dir = os.path.dirname(dest_rel)
             if dest_dir and dest_dir not in seen_dirs:
                 print(f'mkdir -p "$ASSETS/{dest_dir}"')
                 seen_dirs.add(dest_dir)
-            print(f'{op} "{a.old}" "$ASSETS/{dest_rel}"')
+            print(f'[ -e "{a.old}" ] && {op} "{a.old}" "$ASSETS/{dest_rel}" '
+                  f'|| echo "skip (absent): {a.old}"')
         if missing:
-            print("\n# NOTE: these manifest entries were not found in the repo working tree")
-            print("# (expected for >100MB Drive files on a fresh machine — relocate them")
-            print("#  manually if present elsewhere):")
-            for a in missing:
-                print(f'#   [{a.severity}] {a.old}  ->  $ASSETS/{_rel_dest(a)}   ({a.note})')
+            print(f"\n# (on THIS machine {len(missing)} source(s) are absent and will be skipped)")
         return
 
     # --run
