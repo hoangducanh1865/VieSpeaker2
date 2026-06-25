@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lightweight deps
+        run: |
+          python -m pip install --upgrade pip
+          # Only the deps the pure tests + linter need; the heavy runtime stack
+          # (torch/pyannote/onnxruntime) is NOT installed here, so the integration
+          # tests skip cleanly. This keeps CI fast.
+          pip install ruff pytest numpy scipy
+      - name: Ruff (first-party only; vendored trees excluded in pyproject)
+        run: ruff check .
+      - name: Pytest
+        run: pytest -q

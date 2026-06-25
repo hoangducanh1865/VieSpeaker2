@@ -9,7 +9,6 @@ use; cached afterwards) and uses its built-in waveform front-end.
 If torch.hub is unavailable the backend raises and the scenario runner skips it.
 """
 
-import numpy as np
 import torch
 
 from ._common import load_segment_waveform, l2_normalize

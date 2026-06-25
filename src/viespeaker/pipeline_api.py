@@ -13,7 +13,9 @@ import subprocess
 import sys
 
 from . import paths
+from .logging_setup import get_logger
 
+_log = get_logger("viespeaker.pipeline")
 PY = sys.executable
 
 P1_SCRIPT = str(paths.SRC_ROOT / "pipeline" / "audio_pipeline" / "speaker_diarization.py")
@@ -26,11 +28,11 @@ EVAL_SCRIPT = str(paths.SRC_ROOT / "evaluation" / "evaluation.py")
 def run(cmd, label: str | None = None) -> bool:
     """Run a subprocess (streaming output). Returns True on exit code 0."""
     if label:
-        print(f"\n{'=' * 60}\n  {label}\n{'=' * 60}")
-    print("$", " ".join(str(c) for c in cmd), flush=True)
+        _log.info("=== %s ===", label)
+    _log.info("$ %s", " ".join(str(c) for c in cmd))
     rc = subprocess.run([str(c) for c in cmd]).returncode
     if rc != 0:
-        print(f"[rc={rc}] {label or ''}")
+        _log.warning("exit code %d for: %s", rc, label or cmd)
     return rc == 0
 
 
@@ -73,7 +75,7 @@ def run_fusion(inputs, output_dir, file_id, *, label=None):
 def evaluate(pipeline, hyp_path, ref_path, sample_key, experiments_dir, *,
              method="", collar=0.0, label=None):
     if not hyp_path or not os.path.exists(hyp_path):
-        print(f"[EVAL] Skipping — hypothesis file missing: {hyp_path}")
+        _log.warning("[EVAL] Skipping — hypothesis file missing: %s", hyp_path)
         return
     os.makedirs(experiments_dir, exist_ok=True)
     cmd = [PY, EVAL_SCRIPT, "--pipeline", str(pipeline), "--hyp_path", hyp_path,

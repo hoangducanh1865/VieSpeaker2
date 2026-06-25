@@ -1,0 +1,89 @@
+# VieSpeaker2 — CPU / local-dev requirements (macOS / Linux, no CUDA).
+# Mirror of requirements.txt but with CPU torch wheels + CPU onnxruntime.
+# Keep in sync with requirements.txt when adding/removing deps.
+#
+#
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# ---- Core DL stack -------------------------------------------------------
+torch==2.8.0
+torchaudio==2.8.0
+torchmetrics==1.8.2
+pytorch-lightning==2.6.0
+lightning==2.6.0
+lightning-utilities==0.15.2
+
+# ---- ONNX runtime (GPU build — needed for SCRFD/ArcFace/VBx/WeSpeaker293) -
+onnxruntime==1.19.2
+onnx==1.19.1
+
+# ---- Speaker diarization (Pipeline 1) ------------------------------------
+pyannote.audio==3.4.0
+pyannote.core==5.0.0
+pyannote.database==5.1.3
+pyannote.metrics==3.2.1
+pyannote.pipeline==3.0.1
+asteroid-filterbanks==0.4.0
+speechbrain==1.1.0
+pytorch-metric-learning==2.9.0
+julius==0.2.7
+
+# ---- HuggingFace -------------------------------------------------------
+transformers==4.57.6
+tokenizers==0.22.2
+huggingface_hub==0.36.2
+safetensors==0.7.0
+hf-xet==1.4.3
+sentencepiece==0.2.1
+
+# ---- Audio / signal ----------------------------------------------------
+librosa==0.11.0
+soundfile==0.13.1
+soxr==1.0.0
+resampy==0.4.3
+audioread==3.1.0
+python_speech_features==0.6
+numba==0.60.0
+llvmlite==0.43.0
+
+# ---- Vision (Pipeline 2: face detection / tracking / embedding) --------
+insightface==0.7.3
+opencv-python-headless==4.13.0.92
+scikit-image==0.24.0
+albumentations==2.0.8
+filterpy==1.4.5
+Pillow==11.3.0
+
+# ---- Pipeline 3 clustering / fusion ------------------------------------
+scikit-learn==1.6.1
+scipy==1.13.1
+igraph==1.0.0
+leidenalg==0.12.0
+h5py>=3.10.0
+kaldi_io>=0.9.8       # VBx PLDA/feature I/O
+intervaltree>=3.1.0
+spy-der>=0.4.0
+
+# ---- Scientific / utils ------------------------------------------------
+numpy==2.0.2
+pandas==2.3.3
+matplotlib==3.9.4
+einops==0.8.2
+omegaconf==2.3.0
+HyperPyYAML==1.2.3
+PyYAML==6.0.3
+easydict==1.13
+Cython==3.2.4
+tabulate==0.9.0
+prettytable==3.16.0
+tqdm==4.67.3
+requests==2.32.5
+coloredlogs==15.0.1
+humanfriendly==10.0
+primePy==1.3
+optuna==4.8.0
+tensorboardX==2.6.5
+
+# ---- Optional: CAM++ via 3D-Speaker/ModelScope (arch is bundled, so this is
+# only needed if you prefer the official loader). Uncomment if desired.
+# modelscope>=1.9.0

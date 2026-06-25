@@ -21,7 +21,9 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 _SRC = os.path.join(_ROOT, "src")
 sys.path.insert(0, _SRC)
 from viespeaker import bootstrap, paths  # noqa: E402
+from viespeaker.logging_setup import get_logger  # noqa: E402
 bootstrap.setup()
+_log = get_logger("viespeaker.main")
 
 ALL_SAMPLES = ["drama", "interview_clean", "interview_noise", "movie", "sample_0", "singing"]
 
@@ -191,9 +193,7 @@ def main():
     p3_extra = _p3_extra_args(args)
 
     for sample in samples:
-        print(f"\n{'#'*60}")
-        print(f"  SAMPLE: {sample}")
-        print(f"{'#'*60}")
+        _log.info("########## SAMPLE: %s ##########", sample)
 
         ref_path = os.path.join(LABEL_DIR, f"{sample}.txt")
 
@@ -251,7 +251,7 @@ def main():
             fused = run_fusion_pipeline(sample, [sd_path, p2_hyp], fusion_out)
             run_evaluation("fusion", sample, fused, ref_path, collar=args.collar)
 
-    print("\nDone.")
+    _log.info("Done.")
 
 
 if __name__ == "__main__":

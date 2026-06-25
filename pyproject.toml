@@ -52,6 +52,9 @@ extend-exclude = [
     "src/pipeline/clean_pipeline/dover_lap",
     "src/pipeline/clean_pipeline/vbx",
     "src/pipeline/clean_pipeline/nme_sc",
+    "src/pipeline/clean_pipeline/models",
+    "src/pipeline/clean_pipeline/embeddings/backends/arch",
+    "notebook",
     "stuff",
 ]
 

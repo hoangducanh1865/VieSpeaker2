@@ -7,7 +7,6 @@ scripts/prepare_embeddings.py):
 """
 
 import os
-import numpy as np
 import torch
 
 from ._common import load_segment_waveform, compute_kaldi_fbank, l2_normalize
