@@ -1,5 +1,8 @@
-from model.transformer.position_encoding import PositionalEncoding
-from model.transformer.transformer import Transformer
-from model.transformer.transformer import TransformerEncoder, TransformerEncoderLayer
-from model.transformer.transformer import TransformerDecoder, TransformerDecoderLayer
-from model.transformer.utils import layer_norm, generate_square_subsequent_mask, generate_proposal_mask
+"""LoCoNet model components.
+
+The active LoCoNet encoder imports its concrete modules directly.  Older vendor
+code re-exported a separate ``model.transformer`` package here, but that package
+is not part of this LoCoNet implementation and none of the runtime code uses it.
+Keeping those stale imports made every ``model.*`` import fail before the actual
+encoder could be loaded.
+"""
