@@ -248,3 +248,7 @@ src/pipeline/clean_pipeline/embeddings/weights/redimnet/
 # Experiment sweep intermediates (cached P1/P2 outputs, standardized videos,
 # face tracks) — regenerable and large. REPORT.md / results.json are kept.
 experiment/*/cache/
+
+# SLURM job logs (the experiment/logs/ dir itself is kept via .gitkeep)
+experiment/logs/*.out
+experiment/logs/*.err

@@ -76,9 +76,13 @@ Bộ kịch bản curated (P1 cloud/local, P3 × nhiều method × nhiều embed
 # Sanity nhanh (2 mẫu, 4 kịch bản nhẹ)
 python experiment/scenarios/run_scenarios.py --smoke
 
-# Chạy đầy đủ trên A100 qua SLURM
+# Chạy đầy đủ trên A100 qua SLURM (nộp từ thư mục gốc repo)
 sbatch experiment/submit-job.sh
+sbatch experiment/submit-job.sh --smoke                 # tham số chuyển thẳng cho run_scenarios.py
+./experiment/run-interactive.sh --smoke                 # hoặc chạy interactive trên node (log realtime)
 ```
+
+> 📖 Hướng dẫn đầy đủ chạy trên cluster DGX (push→pull→sbatch/srun, tạo `.env` trên server, theo dõi job): xem [RUN_ON_SERVER.md](RUN_ON_SERVER.md).
 
 Hoặc chạy trực tiếp (không SLURM):
 
