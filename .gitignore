@@ -252,3 +252,28 @@ experiment/*/cache/
 # SLURM job logs (the experiment/logs/ dir itself is kept via .gitkeep)
 experiment/logs/*.out
 experiment/logs/*.err
+
+# ─────────────────────────────────────────────────────────────────────────────
+# External assets — model weights + test media now live OUTSIDE the repo, in the
+# assets dir (default ~/anhhd/sv/VieSpeaker2_assets; see viespeaker.paths and
+# RUN_ON_SERVER docs). They are no longer tracked here.
+# ─────────────────────────────────────────────────────────────────────────────
+# Model weights
+src/pipeline/clean_pipeline/models/ecapa_tdnn/exps/pretrain.model
+src/pipeline/clean_pipeline/vbx/models/
+src/pipeline/clean_pipeline/embeddings/weights/
+src/pipeline/audio_visual_pipeline/face_detection_model/SCRFD/weights/
+src/pipeline/audio_visual_pipeline/face_embedding_model/weights/
+src/pipeline/audio_visual_pipeline/audio_visual_model/LR-ASD/weight/
+# (loconet_ava_best.model already ignored above; tiny s3fd.pth stays in repo)
+# Test media (audio/video/label_audio in assets; ground-truth label/*.txt stay)
+data/diarization_test_set/audio/
+data/diarization_test_set/video/
+data/diarization_test_set/label_audio/
+
+# Generated experiment outputs (charts + dated/runtag result dirs) — regenerable
+experiment/20*/
+debug_output.txt
+# Vendored test outputs (regenerable)
+src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/sample_0_output/
+src/pipeline/audio_visual_pipeline/audio_visual_model/LoCoNet_ASD/utils/overall.png
