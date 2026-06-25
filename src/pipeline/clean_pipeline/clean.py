@@ -43,15 +43,21 @@ except ImportError:
 import sklearn
 _SKLEARN_VER = tuple(int(x) for x in sklearn.__version__.split(".")[:2])
 
-# Paths resolved relative to THIS file
+# Make the `viespeaker` package importable from a fresh checkout (no install
+# needed), then let it centralize the shared sys.path setup.
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_MODELS_DIR = os.path.join(_HERE, "models")
-_ECAPA_ROOT = os.path.join(_MODELS_DIR, "ecapa_tdnn")
-_ECAPA_PATH = os.path.join(_ECAPA_ROOT, "exps", "pretrain.model")
+_d = _HERE
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker import bootstrap, paths  # noqa: E402
+bootstrap.setup()
 
-# Make `import embeddings.*` work whether clean.py is run as a script or imported.
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
+# ECAPA *code* (model.py) stays in-repo; the *weight* lives in the assets dir.
+_ECAPA_CODE_ROOT = os.path.join(_HERE, "models", "ecapa_tdnn")
+_ECAPA_PATH = str(paths.ECAPA_MODEL)
 
 from embeddings.registry import get_embedder  # noqa: E402
 
@@ -312,8 +318,10 @@ def run_ahc(args) -> str:
 # ============================================================================
 
 def _load_ecapa_model():
-    if _ECAPA_ROOT not in sys.path:
-        sys.path.insert(0, _ECAPA_ROOT)
+    # Insert the ECAPA code dir at sys.path[0] just-in-time so its generic
+    # `model.py` wins over other vendored `model` modules.
+    if _ECAPA_CODE_ROOT not in sys.path:
+        sys.path.insert(0, _ECAPA_CODE_ROOT)
     from model import ECAPA_TDNN  # type: ignore
     model = ECAPA_TDNN(C=1024)
     if not os.path.exists(_ECAPA_PATH):

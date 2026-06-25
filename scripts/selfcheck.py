@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Preflight check before launching the (long) scenario sweep on the server.
 
-Verifies: core imports, model-weight presence, embedding backends actually
-produce a vector on a synthetic clip, and reports .env keys. Exits non-zero only
-if a CORE component is broken; best-effort items (loconet, redimnet, cloud key)
-only warn.
+Verifies: core imports, that the external assets dir is populated (weights +
+test data), embedding backends actually produce a vector, and reports .env keys.
+Exits non-zero only if a CORE component is broken; best-effort / soft items only
+warn and print exactly where the missing file should go.
 
     python scripts/selfcheck.py
 """
@@ -13,9 +13,18 @@ import os
 import sys
 import tempfile
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_CLEAN = os.path.join(_ROOT, "src", "pipeline", "clean_pipeline")
-sys.path.insert(0, _CLEAN)
+# Make `viespeaker` importable from a fresh checkout, then centralize sys.path.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_d = _HERE
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker import bootstrap, paths  # noqa: E402
+from viespeaker import assets_manifest as M  # noqa: E402
+
+bootstrap.setup()
 
 OK, WARN, FAIL = "[ OK ]", "[WARN]", "[FAIL]"
 _core_failed = False
@@ -47,35 +56,25 @@ def check_imports():
             line(WARN, f"{m} (optional): {e}")
 
 
-def check_weights():
-    print("\n== Model weights ==")
-    av = os.path.join(_ROOT, "src", "pipeline", "audio_visual_pipeline")
-    emb = os.path.join(_CLEAN, "embeddings", "weights")
-    core = {
-        "ECAPA pretrain.model": os.path.join(_CLEAN, "models", "ecapa_tdnn", "exps", "pretrain.model"),
-        "VBx ResNet101 onnx": os.path.join(_CLEAN, "vbx", "models", "ResNet101_16kHz", "nnet", "final.onnx"),
-        "VBx plda": os.path.join(_CLEAN, "vbx", "models", "ResNet101_16kHz", "plda"),
-        "VBx transform.h5": os.path.join(_CLEAN, "vbx", "models", "ResNet101_16kHz", "transform.h5"),
-        "SCRFD detector": os.path.join(av, "face_detection_model", "SCRFD", "weights", "model_3_kps.onnx"),
-    }
-    soft = {
-        "ArcFace glintr100 (P2)": os.path.join(av, "face_embedding_model", "weights", "glintr100.onnx"),
-        "LR-ASD weight (P2)": os.path.join(av, "audio_visual_model", "LR-ASD", "weight", "finetuning_TalkSet.model"),
-        "LoCoNet weight (P2)": os.path.join(av, "audio_visual_model", "LoCoNet_ASD", "pretrained_model", "loconet_ava_best.model"),
-        "WeSpeaker34 bin": os.path.join(emb, "wespeaker34", "pytorch_model.bin"),
-        "WeSpeaker293 onnx": os.path.join(emb, "wespeaker293", "speaker-embedding.onnx"),
-        "CAM++ bin": os.path.join(emb, "campplus", "campplus_cn_common.bin"),
-        "ReDimNet pt": os.path.join(emb, "redimnet", "model_120.pt"),
-    }
+def check_assets():
+    """Verify the external assets (weights + test media) via the manifest."""
+    print("\n== Assets (weights + test data) ==")
+    print(paths.describe())
     global _core_failed
-    for name, p in core.items():
-        if os.path.exists(p):
-            line(OK, name)
-        else:
-            line(FAIL, f"{name} MISSING: {p}")
+    if not paths.ASSETS_ROOT.is_dir():
+        line(FAIL, f"Assets dir does not exist: {paths.ASSETS_ROOT}")
+        line("", "      Populate it: run `python scripts/migrate_assets.py` and follow the commands,")
+        line("", "      or set VIESPEAKER2_ASSETS to point at your assets dir.")
+        _core_failed = True
+        return
+    for a in M.ALL:
+        if a.dest.exists():
+            line(OK, f"{a.note}")
+        elif a.severity == "core":
+            line(FAIL, f"{a.note} MISSING -> {a.dest}")
             _core_failed = True
-    for name, p in soft.items():
-        line(OK if os.path.exists(p) else WARN, f"{name}{'' if os.path.exists(p) else ' MISSING (run scripts/prepare_embeddings.py)'}")
+        else:
+            line(WARN, f"{a.note} missing (best-effort) -> {a.dest}")
 
 
 def _synth_wav():
@@ -93,7 +92,6 @@ def check_embedders():
     print("\n== Embedding backends (synthetic 3s clip, CPU) ==")
     from embeddings.registry import KNOWN_BACKENDS, get_embedder
     wav = _synth_wav()
-    best_effort = {"redimnet"}
     for name in KNOWN_BACKENDS:
         try:
             emb = get_embedder(name, device="cpu")
@@ -102,13 +100,12 @@ def check_embedders():
                 raise RuntimeError("extract returned None")
             line(OK, f"{name} -> dim={len(v)}")
         except Exception as e:
-            line(WARN if name in best_effort else WARN, f"{name}: {type(e).__name__}: {e}")
+            line(WARN, f"{name}: {type(e).__name__}: {e}")
 
 
 def check_env():
     print("\n== .env / API keys ==")
-    # load .env (mirrors the pipelines' loader)
-    env = os.path.join(_ROOT, ".env")
+    env = os.path.join(paths.REPO_ROOT, ".env")
     if os.path.exists(env):
         for ln in open(env):
             ln = ln.strip()
@@ -129,7 +126,7 @@ def main():
     except Exception:
         pass
     check_imports()
-    check_weights()
+    check_assets()
     check_env()
     try:
         check_embedders()

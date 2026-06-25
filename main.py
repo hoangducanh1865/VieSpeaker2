@@ -20,14 +20,18 @@ import subprocess
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _SRC = os.path.join(_ROOT, "src")
+sys.path.insert(0, _SRC)
+from viespeaker import bootstrap, paths  # noqa: E402
+bootstrap.setup()
 
 ALL_SAMPLES = ["drama", "interview_clean", "interview_noise", "movie", "sample_0", "singing"]
 
+# Pipeline OUTPUTS stay in the repo's data/ dir (gitignored). INPUT audio/video
+# come from the external assets dir; ground-truth labels stay in the repo.
 DATA_DIR = os.path.join(_ROOT, "data")
-TEST_SET_DIR = os.path.join(DATA_DIR, "diarization_test_set")
-AUDIO_DIR = os.path.join(TEST_SET_DIR, "audio")
-VIDEO_DIR = os.path.join(TEST_SET_DIR, "video")
-LABEL_DIR = os.path.join(TEST_SET_DIR, "label")
+AUDIO_DIR = str(paths.AUDIO_DIR)
+VIDEO_DIR = str(paths.VIDEO_DIR)
+LABEL_DIR = str(paths.LABEL_DIR)
 EXPERIMENTS_DIR = os.path.join(_ROOT, "experiment")
 
 P1_SCRIPT = os.path.join(_SRC, "pipeline", "audio_pipeline", "speaker_diarization.py")

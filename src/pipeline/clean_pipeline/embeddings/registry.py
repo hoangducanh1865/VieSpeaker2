@@ -18,8 +18,12 @@ Available backends:
 
 import os
 
+from viespeaker import paths
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
-WEIGHTS_DIR = os.path.join(_HERE, "weights")
+# Embedding weights now live in the external assets dir (see viespeaker.paths),
+# not in-repo. Override via VIESPEAKER2_ASSETS.
+WEIGHTS_DIR = str(paths.EMBEDDINGS_WEIGHTS)
 
 KNOWN_BACKENDS = ["ecapa", "wespeaker34", "wespeaker293", "campplus", "redimnet"]
 

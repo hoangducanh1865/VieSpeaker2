@@ -18,10 +18,16 @@ Usage:
 import argparse
 import os
 import shutil
+import sys
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_ROOT, "src"))
+from viespeaker import paths  # noqa: E402
+
 _SRC_STUFF = os.path.join(_ROOT, "stuff", "reference", "speaker_embedding_model")
-_DST = os.path.join(_ROOT, "src", "pipeline", "clean_pipeline", "embeddings", "weights")
+# Embedding weights now live in the external assets dir (see viespeaker.paths).
+# (For a full relocate of ALL weights+media, prefer scripts/migrate_assets.py.)
+_DST = str(paths.EMBEDDINGS_WEIGHTS)
 
 # (destination subdir, [ (src_relpath, dst_filename), ... ])
 COPY_PLAN = {

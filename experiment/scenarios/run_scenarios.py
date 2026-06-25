@@ -30,8 +30,10 @@ import traceback
 _THIS = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.abspath(os.path.join(_THIS, "..", ".."))
 _SRC = os.path.join(_ROOT, "src")
+sys.path.insert(0, _SRC)
 sys.path.insert(0, _THIS)
-sys.path.insert(0, os.path.join(_SRC, "evaluation"))
+from viespeaker import bootstrap, paths  # noqa: E402
+bootstrap.setup()
 
 import scenarios as SC  # noqa: E402
 from evaluation import evaluate_diarization_files  # noqa: E402
@@ -44,10 +46,10 @@ P3_SCRIPT = os.path.join(_SRC, "pipeline", "clean_pipeline", "clean.py")
 FUSION_SCRIPT = os.path.join(_SRC, "pipeline", "fusion_pipeline", "fuse.py")
 
 # Test-set layout
-TEST_SET = os.path.join(_ROOT, "data", "diarization_test_set")
-AUDIO_DIR = os.path.join(TEST_SET, "audio")
-VIDEO_DIR = os.path.join(TEST_SET, "video")
-LABEL_DIR = os.path.join(TEST_SET, "label")
+# Inputs (audio/video) come from the external assets dir; labels stay in repo.
+AUDIO_DIR = str(paths.AUDIO_DIR)
+VIDEO_DIR = str(paths.VIDEO_DIR)
+LABEL_DIR = str(paths.LABEL_DIR)
 
 
 # --------------------------------------------------------------------------- #

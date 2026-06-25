@@ -13,7 +13,17 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
-from face_pipeline import ASVDataPipeline, ORIGINAL_FACE_SETUP
+# Make `viespeaker` importable from a fresh checkout, then centralize sys.path.
+_d = _THIS_DIR
+while _d != os.path.dirname(_d):
+    if os.path.isdir(os.path.join(_d, "src", "viespeaker")):
+        sys.path.insert(0, os.path.join(_d, "src"))
+        break
+    _d = os.path.dirname(_d)
+from viespeaker import bootstrap, paths  # noqa: E402
+bootstrap.setup()
+
+from face_pipeline import ASVDataPipeline, ORIGINAL_FACE_SETUP  # noqa: E402
 
 _HERE = _THIS_DIR
 _ROOT = os.path.abspath(os.path.join(_HERE, '..', '..', '..'))
@@ -387,6 +397,7 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
 			"--mode", "both",
 			"--max-frames", str(max_frames),
 			"--inference-stride", str(inference_stride),
+			"--resume-path", str(paths.LOCONET_MODEL),
 		]
 		ret = subprocess.call(cmd)
 		if ret != 0:
@@ -644,14 +655,14 @@ def main():
 
 	# Face pipeline models
 	parser.add_argument("--detector_model",
-		default=os.path.join(_HERE, "face_detection_model", "SCRFD", "weights", "model_3_kps.onnx"))
+		default=str(paths.SCRFD_DEFAULT))
 	parser.add_argument("--arcface_model",
-		default=os.path.join(_HERE, "face_embedding_model", "weights", "glintr100.onnx"))
+		default=str(paths.ARCFACE_MODEL))
 	parser.add_argument("--model", choices=["lr_asd", "loconet"], default="lr_asd",
 					dest="audio_visual_model",
 					help="Active Speaker Detection model: 'lr_asd' (LR-ASD) or 'loconet' (LoCoNet)")
 	parser.add_argument("--lrasd_model",
-		default=os.path.join(_HERE, "audio_visual_model", "LR-ASD", "weight", "finetuning_TalkSet.model"),
+		default=str(paths.LRASD_MODEL),
 					help="Path to LR-ASD model")
 	parser.add_argument("--loconet_root",
 		default=os.path.join(_HERE, "audio_visual_model", "LoCoNet_ASD"),
