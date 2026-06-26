@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import json
+import re
 import subprocess
 import shutil
 from collections import defaultdict
@@ -21,6 +22,7 @@ while _d != os.path.dirname(_d):
         break
     _d = os.path.dirname(_d)
 from viespeaker import bootstrap, paths  # noqa: E402
+from viespeaker.loconet_adapter import scores_to_segments  # noqa: E402
 bootstrap.setup()
 
 from face_pipeline import ASVDataPipeline, ORIGINAL_FACE_SETUP  # noqa: E402
@@ -324,8 +326,49 @@ def write_anomaly_report(report_path, decisions):
             f.write(f"  Reason: {d['reason']}\n")
 
 
-def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_root, 
-                     max_frames=1000, inference_stride=5, min_segment_sec=0.2):
+def _write_loconet_track_db(output_path, track_history, track_bboxes):
+    """Convert the shared SCRFD/SORT tracks to LoCoNet's tracks.json format."""
+    tracks = {}
+    frames = defaultdict(list)
+
+    for track_id, boxes in track_bboxes.items():
+        crop_by_frame = {}
+        for crop_path in track_history.get(track_id, []):
+            match = re.search(r"frame_(\d+)\.jpg$", crop_path)
+            if match:
+                crop_by_frame[int(match.group(1))] = crop_path
+
+        track_frames = {}
+        for one_based_frame, bbox in boxes:
+            frame_idx = max(0, int(one_based_frame) - 1)
+            crop = crop_by_frame.get(int(one_based_frame))
+            item = {
+                "track_id": int(track_id),
+                "bbox": [float(value) for value in bbox],
+                "crop": crop,
+            }
+            frames[frame_idx].append(item)
+            track_frames[frame_idx] = {"bbox": item["bbox"], "crop": crop}
+
+        if track_frames:
+            last_frame = max(track_frames)
+            tracks[str(track_id)] = {
+                "last_box": track_frames[last_frame]["bbox"],
+                "last_seen": last_frame,
+                "frames": {str(frame): item for frame, item in track_frames.items()},
+            }
+
+    payload = {
+        "tracks": tracks,
+        "frames": {str(frame): items for frame, items in frames.items()},
+    }
+    with open(output_path, "w") as handle:
+        json.dump(payload, handle)
+
+
+def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_root,
+                     track_history, track_bboxes, max_frames=1000,
+                     inference_stride=5, min_segment_sec=0.2):
     """
     Run LoCoNet for Active Speaker Detection and generate diarization file.
     
@@ -381,6 +424,9 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
     # Also convert video and output to absolute paths BEFORE changing directory
     video_path_abs = os.path.abspath(video_path_for_loconet)
     loconet_output_dir_abs = os.path.abspath(loconet_output_dir)
+    tracks_path = os.path.join(loconet_output_dir_abs, "tracks.json")
+    _write_loconet_track_db(tracks_path, track_history, track_bboxes)
+    print(f"[LoCoNet] Reusing SCRFD/SORT tracks: {tracks_path}")
 
     cwd = os.getcwd()
     try:
@@ -390,7 +436,7 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
             "process_single_video.py",
             "--video", video_path_abs,
             "--output", loconet_output_dir_abs,
-            "--mode", "both",
+            "--mode", "infer",
             "--max-frames", str(max_frames),
             "--inference-stride", str(inference_stride),
             "--resume-path", str(paths.LOCONET_MODEL),
@@ -403,7 +449,12 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
 
     # Parse LoCoNet output and generate diarization file
     # Assuming LoCoNet outputs speaker predictions in JSON or similar format
-    speaker_predictions = parse_loconet_output(loconet_output_dir, clustered_identities)
+    speaker_predictions = parse_loconet_output(
+        loconet_output_dir,
+        clustered_identities,
+        inference_stride=inference_stride,
+        min_segment_sec=min_segment_sec,
+    )
 
     # Write diarization file
     with open(output_txt_path, "w") as f:
@@ -418,7 +469,9 @@ def run_loconet_asd(video_path, clustered_identities, output_txt_path, loconet_r
     print(f"[LoCoNet] Diarization saved to {output_txt_path}")
 
 
-def parse_loconet_output(loconet_output_dir, clustered_identities):
+def parse_loconet_output(loconet_output_dir, clustered_identities,
+                         inference_stride=5, min_segment_sec=0.2,
+                         speaker_threshold=0.5):
     """
     Parse LoCoNet output and convert to diarization format.
     
@@ -457,6 +510,18 @@ def parse_loconet_output(loconet_output_dir, clustered_identities):
     # scores.json format: list of speaker IDs per frame, or dict with "predictions" key
     # tracks.json format: dict with track information
     
+    if (
+        isinstance(loconet_data, list)
+        and (not loconet_data or "frame_idx" in loconet_data[0])
+    ):
+        return scores_to_segments(
+            loconet_data,
+            clustered_identities,
+            inference_stride=inference_stride,
+            min_segment_sec=min_segment_sec,
+            speaker_threshold=speaker_threshold,
+        )
+
     if isinstance(loconet_data, list):
         # Direct list of speaker IDs
         frames_data = loconet_data
@@ -622,6 +687,8 @@ def run_face_pipeline_for_video_diarization(args, skip_phase_0_2=False, tracks_d
             clustered_identities=clusters,
             output_txt_path=video_diarization,
             loconet_root=args.loconet_root,
+            track_history=pipeline.track_history,
+            track_bboxes=pipeline.track_bboxes,
             max_frames=args.loconet_max_frames,
             inference_stride=args.loconet_inference_stride,
             min_segment_sec=args.min_segment_sec,

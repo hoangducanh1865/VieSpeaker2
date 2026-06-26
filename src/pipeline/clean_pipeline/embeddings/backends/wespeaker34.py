@@ -14,6 +14,8 @@ Falls back to the public HF id `pyannote/wespeaker-voxceleb-resnet34-LM`
 import os
 import numpy as np
 
+from viespeaker.hf_compat import pretrained_auth_kwargs, pyannote_hf_hub_compat
+
 from ._common import l2_normalize
 from ..registry import WEIGHTS_DIR
 
@@ -34,10 +36,11 @@ class WeSpeaker34Embedder:
             if target in (_DIR, _BIN) and not os.path.exists(target):
                 continue
             try:
-                kwargs = {}
-                if target == _HF_ID and token:
-                    kwargs["use_auth_token"] = token
-                model = Model.from_pretrained(target, **kwargs)
+                auth = pretrained_auth_kwargs(
+                    Model.from_pretrained, token if target == _HF_ID else None
+                )
+                with pyannote_hf_hub_compat():
+                    model = Model.from_pretrained(target, **auth)
                 break
             except Exception as e:  # try the next candidate
                 last_err = e

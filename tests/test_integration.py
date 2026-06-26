@@ -22,6 +22,33 @@ def test_fusion_single_input(tmp_path):
     assert len(out.read_text().strip().splitlines()) == 2
 
 
+def test_fusion_two_inputs_without_optional_hungarian(tmp_path, monkeypatch):
+    pytest.importorskip("numpy")
+    pytest.importorskip("scipy")
+    pytest.importorskip("intervaltree")
+    from viespeaker import bootstrap
+
+    bootstrap.setup()
+    try:
+        import dover_lap.src.label_mapping as label_mapping
+        from fuse import run_fusion
+    except Exception as e:
+        pytest.skip(f"fusion import failed: {e}")
+
+    monkeypatch.setattr(label_mapping, "HungarianMap", None)
+
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    first.write_text("0.000 1.000 A\n1.000 2.000 B\n")
+    second.write_text("0.000 1.000 X\n1.000 2.000 Y\n")
+    out = tmp_path / "fused.txt"
+
+    run_fusion([str(first), str(second)], str(out), file_id="sample")
+
+    assert out.exists()
+    assert out.read_text().strip()
+
+
 def test_eval_unique_tracks(tmp_path):
     pytest.importorskip("pyannote.core")
     from viespeaker import bootstrap
@@ -37,3 +64,46 @@ def test_eval_unique_tracks(tmp_path):
     ref.write_text("0.0 1.0 A\n0.0 1.0 B\n")
     ann = load_annotation_from_file(str(ref))
     assert len(list(ann.itertracks())) == 2
+
+
+def test_redimnet_uses_upstream_torch_hub_api(monkeypatch):
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("numpy")
+
+    from viespeaker import bootstrap
+
+    bootstrap.setup()
+    from embeddings.backends.redimnet import ReDimNetEmbedder
+
+    calls = []
+
+    class FakeModel:
+        def to(self, device):
+            self.device = device
+            return self
+
+        def eval(self):
+            return self
+
+    def fake_load(repo, entrypoint, **kwargs):
+        calls.append((repo, entrypoint, kwargs))
+        return FakeModel()
+
+    monkeypatch.setattr(torch.hub, "load", fake_load)
+
+    embedder = ReDimNetEmbedder(device="cpu")
+
+    assert embedder.dim == 192
+    assert calls == [
+        (
+            "IDRnD/ReDimNet",
+            "ReDimNet",
+            {
+                "model_name": "b6",
+                "train_type": "ptn",
+                "dataset": "vox2",
+                "verbose": False,
+                "trust_repo": True,
+            },
+        )
+    ]

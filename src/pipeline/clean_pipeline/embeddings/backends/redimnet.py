@@ -21,12 +21,17 @@ class ReDimNetEmbedder:
             # trust_repo=True avoids the interactive "do you trust this repo?"
             # prompt that would otherwise hang a non-interactive SLURM job.
             model = torch.hub.load(
-                "IDRnD/ReDimNet", "b6", pretrained=True, finetuned=False,
+                "IDRnD/ReDimNet",
+                "ReDimNet",
+                model_name="b6",
+                train_type="ptn",
+                dataset="vox2",
                 verbose=False, trust_repo=True,
             )
         except Exception as e:
             raise RuntimeError(
-                f"Could not load ReDimNet-B6 from torch.hub (needs network on first run): {e}"
+                "Could not load ReDimNet-B6 from torch.hub "
+                f"(first run needs GitHub access; later runs use the torch cache): {e}"
             )
         self.model = model.to(self.device).eval()
         self.dim = 192

@@ -485,7 +485,6 @@ def main():
     output_dir = Path(args.output) if args.output else video_path.with_suffix("").with_name(video_path.stem + "_processed")
     ensure_dir(output_dir)
 
-    detector = load_detector(proto_path, weight_path)
     cfg = load_cfg(Path(args.cfg), Path(args.data_path_ava))
 
     audio_path = output_dir / "audio.wav"
@@ -497,6 +496,7 @@ def main():
     fps = None
 
     if args.mode in {"preprocess", "both"}:
+        detector = load_detector(proto_path, weight_path)
         track_db, fps, total_frames, _ = preprocess_video(video_path, detector, output_dir, args)
         (output_dir / "tracks.json").write_text(json.dumps(serialize_track_db(track_db), indent=2), encoding="utf-8")
     else:

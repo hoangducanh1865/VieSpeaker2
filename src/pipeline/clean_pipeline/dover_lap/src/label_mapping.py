@@ -20,13 +20,16 @@ class LabelMapping:
         matching approximation algorithm to map all to a common label space.
         """
 
-        if (len(turns_list) == 2) or (method == "hungarian"):
+        if ((len(turns_list) == 2) or (method == "hungarian")) and HungarianMap is not None:
             # We replace the original turns list with one sorted by average DER
             hungarian_map = HungarianMap()
             label_mapping, weights = hungarian_map.compute_mapping(turns_list)
             turns_list = hungarian_map.sorted_turns_list
 
-        elif method == "greedy":
+        elif method in ("greedy", "hungarian") or len(turns_list) == 2:
+            # HungarianMap depends on the optional spy-der package.  The greedy
+            # overlap mapper supports two systems as well, so use it when that
+            # optional dependency is unavailable instead of calling None.
             greedy_map = GreedyMap(second_maximal=second_maximal)
             label_mapping, weights = greedy_map.compute_mapping(turns_list)
 
